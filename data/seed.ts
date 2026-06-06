@@ -1,0 +1,176 @@
+import type { Shop, Transaction } from "@/lib/types";
+
+export const DEMO_USER_ID = "demo-user";
+export const DEMO_USER_EMAIL = "demo@example.com";
+
+const now = "2026-06-06T00:00:00.000Z";
+
+export const seedShops: Shop[] = [
+  {
+    id: "shop-lanaartsco",
+    userId: DEMO_USER_ID,
+    name: "LanaArtsCo",
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "shop-luxuriumarts",
+    userId: DEMO_USER_ID,
+    name: "LuxuriumArts",
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "shop-oaklivings",
+    userId: DEMO_USER_ID,
+    name: "OakLivings",
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "shop-sequoiainteriors",
+    userId: DEMO_USER_ID,
+    name: "SequoiaInteriors",
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  }
+];
+
+export const seedTransactions: Transaction[] = [
+  {
+    id: "txn-4079480146",
+    userId: DEMO_USER_ID,
+    shopId: "shop-sequoiainteriors",
+    date: "2026-06-06",
+    month: "2026-06-01",
+    orderNumber: "4079480146",
+    status: "Payee",
+    grossRevenue: 255.32,
+    refunds: 0,
+    etsyFees: 33.97,
+    etsyAds: 0,
+    productCost: 83,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 255.32,
+    netProfit: 138.35,
+    margin: 0.5419,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "txn-4082071229",
+    userId: DEMO_USER_ID,
+    shopId: "shop-sequoiainteriors",
+    date: "2026-06-04",
+    month: "2026-06-01",
+    orderNumber: "4082071229",
+    status: "Payee",
+    grossRevenue: 229.59,
+    refunds: 0,
+    etsyFees: 30.58,
+    etsyAds: 0,
+    productCost: 80.39,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 229.59,
+    netProfit: 118.62,
+    margin: 0.5167,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "txn-4083802925",
+    userId: DEMO_USER_ID,
+    shopId: "shop-sequoiainteriors",
+    date: "2026-06-06",
+    month: "2026-06-01",
+    orderNumber: "4083802925",
+    status: "Payee",
+    grossRevenue: 234.6,
+    refunds: 0,
+    etsyFees: 31.24,
+    etsyAds: 0,
+    productCost: 60,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 234.6,
+    netProfit: 143.36,
+    margin: 0.6111,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "txn-4083437509",
+    userId: DEMO_USER_ID,
+    shopId: "shop-oaklivings",
+    date: "2026-06-06",
+    month: "2026-06-01",
+    orderNumber: "4083437509",
+    status: "Payee",
+    grossRevenue: 216.76,
+    refunds: 0,
+    etsyFees: 28.89,
+    etsyAds: 0,
+    productCost: 53,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 216.76,
+    netProfit: 134.87,
+    margin: 0.6222,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "txn-luxuriumarts-20260601",
+    userId: DEMO_USER_ID,
+    shopId: "shop-luxuriumarts",
+    date: "2026-06-01",
+    month: "2026-06-01",
+    orderNumber: "",
+    status: "Payee",
+    grossRevenue: 183.24,
+    refunds: 0,
+    etsyFees: 30.79,
+    etsyAds: 0,
+    productCost: 83,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 183.24,
+    netProfit: 69.45,
+    margin: 0.379,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: "txn-lanaartsco-20260601",
+    userId: DEMO_USER_ID,
+    shopId: "shop-lanaartsco",
+    date: "2026-06-01",
+    month: "2026-06-01",
+    orderNumber: "",
+    status: "Payee",
+    grossRevenue: 570.61,
+    refunds: 0,
+    etsyFees: 82.47,
+    etsyAds: 0,
+    productCost: 259,
+    shippingPaid: 0,
+    otherFees: 0,
+    netRevenue: 570.61,
+    netProfit: 229.14,
+    margin: 0.4016,
+    notes: "",
+    createdAt: now,
+    updatedAt: now
+  }
+];

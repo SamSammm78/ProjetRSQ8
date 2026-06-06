@@ -1,0 +1,10 @@
+.next
+node_modules
+.env*.local
+.vercel
+coverage
+dist
+out
+*.log
+*.tsbuildinfo
+prompt_saas_etsy_dashboard.md
