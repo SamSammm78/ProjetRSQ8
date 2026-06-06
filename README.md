@@ -1,6 +1,6 @@
 # ProjetRSQ8
 
-Dashboard prive mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice, les frais et la marge de plusieurs boutiques Etsy.
+Dashboard mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice, les frais et la marge de plusieurs boutiques Etsy.
 
 ## Ce qui est inclus
 
@@ -10,7 +10,7 @@ Dashboard prive mobile-first pour suivre le chiffre d'affaires, le CA net, le be
 - Gestion illimitee des boutiques.
 - Ajout, suppression, export JSON et export CSV des transactions.
 - Import CSV Etsy avec mapping client et detection des doublons `shop_id + order_number`.
-- Schema Supabase prive avec tables, calculs SQL et index.
+- Schema Supabase avec tables, calculs SQL et index.
 - Donnees initiales reprises du prompt.
 
 ## Lancer en local
@@ -22,7 +22,7 @@ npm run dev
 
 Ouvre ensuite `http://localhost:3000`.
 
-L'app fonctionne immediatement avec `localStorage`. Les donnees de base privee sont preparees dans `supabase/schema.sql`.
+L'app fonctionne immediatement avec `localStorage`. Les tables SQL sont preparees dans `supabase/schema.sql`.
 
 ## Supabase
 
@@ -31,7 +31,7 @@ L'app fonctionne immediatement avec `localStorage`. Les donnees de base privee s
 3. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
 4. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
 
-Le schema ne contient pas de systeme de compte : il est prevu pour une base privee utilisee uniquement par toi.
+Le schema contient les tables principales pour les boutiques et transactions.
 
 ## Deploiement Vercel
 
@@ -58,7 +58,7 @@ Remplace l'URL du remote par celle de ton repository GitHub.
 - `components/` : composants React reutilisables.
 - `lib/` : types, calculs, donnees locales, parsing CSV et formatage.
 - `data/seed.ts` : boutiques et transactions initiales.
-- `supabase/` : schema SQL prive et seed.
+- `supabase/` : schema SQL et seed.
 
 ## Fonctions metier
 

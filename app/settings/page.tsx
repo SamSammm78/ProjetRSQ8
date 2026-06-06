@@ -35,9 +35,9 @@ export default function SettingsPage() {
             <Database size={21} />
           </span>
           <div>
-            <h2 className="font-semibold">Dashboard prive</h2>
+            <h2 className="font-semibold">Donnees du dashboard</h2>
             <p className="mt-1 text-sm text-ink/60">
-              Donnees personnelles stockees dans ton espace projet.
+              Gestion des exports, preferences et donnees locales.
             </p>
           </div>
         </div>
@@ -65,10 +65,10 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-lg border border-sage bg-white p-5 shadow-soft">
-        <h2 className="font-semibold">Usage prive</h2>
+        <h2 className="font-semibold">Organisation</h2>
         <p className="mt-2 text-sm leading-6 text-ink/65">
-          L&apos;application ne contient plus de systeme de compte. Elle est pensee pour une
-          utilisation personnelle avec tes boutiques, tes transactions et tes exports.
+          Les boutiques, transactions, imports et exports sont regroupes dans une interface
+          simple pour suivre les performances Etsy.
         </p>
       </section>
     </PageShell>
