@@ -44,6 +44,28 @@ create table if not exists public.transactions (
 create index if not exists transactions_date_idx on public.transactions(date);
 create index if not exists transactions_shop_idx on public.transactions(shop_id);
 
+do $$
+begin
+  if to_regclass('public.profiles') is not null then
+    execute 'drop policy if exists "profiles are private" on public.profiles';
+  end if;
+
+  if to_regclass('public.shops') is not null then
+    execute 'drop policy if exists "shops are private" on public.shops';
+  end if;
+
+  if to_regclass('public.transactions') is not null then
+    execute 'drop policy if exists "transactions are private" on public.transactions';
+  end if;
+end $$;
+
+alter table if exists public.shops disable row level security;
+alter table if exists public.transactions disable row level security;
+
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.shops to anon, authenticated;
+grant select, insert, update, delete on public.transactions to anon, authenticated;
+
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql

@@ -36,6 +36,10 @@ L'app utilise Supabase comme base de donnees. Les tables SQL sont preparees dans
 
 Le schema contient les tables principales pour les boutiques et transactions.
 
+Si les boutiques ou transactions existent dans Supabase mais ne s'affichent pas dans l'app,
+execute `supabase/fix-dashboard-access.sql`. Cela retire les anciennes policies de compte et
+autorise le dashboard a lire/ecrire dans `shops` et `transactions`.
+
 ## Deploiement Vercel
 
 1. Pousse le projet sur GitHub.
