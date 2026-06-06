@@ -2,52 +2,120 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  getStoredShops,
-  getStoredTransactions,
-  saveStoredShops,
-  saveStoredTransactions
-} from "@/lib/local-store";
-import type { Shop, Transaction } from "@/lib/types";
+  createShopInSupabase,
+  createTransactionInSupabase,
+  createTransactionsInSupabase,
+  deleteShopInSupabase,
+  deleteTransactionInSupabase,
+  loadDashboardData,
+  resetSupabaseData,
+  updateShopInSupabase
+} from "@/lib/supabase-db";
+import type { Shop, Transaction, TransactionInput } from "@/lib/types";
 
 type DataContextValue = {
+  error: string;
+  isLoading: boolean;
   shops: Shop[];
   transactions: Transaction[];
-  setShops: (shops: Shop[]) => void;
-  setTransactions: (transactions: Transaction[]) => void;
-  resetData: () => void;
+  addShop: (name: string) => Promise<void>;
+  toggleShop: (shopId: string) => Promise<void>;
+  deleteShop: (shopId: string) => Promise<void>;
+  addTransaction: (transaction: TransactionInput) => Promise<void>;
+  addTransactions: (transactions: TransactionInput[]) => Promise<number>;
+  deleteTransaction: (transactionId: string) => Promise<void>;
+  resetData: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
 
 export function ClientDataProvider({ children }: { children: React.ReactNode }) {
-  const [shops, setShopsState] = useState<Shop[]>([]);
-  const [transactions, setTransactionsState] = useState<Transaction[]>([]);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  async function refreshData() {
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const data = await loadDashboardData();
+      setShops(data.shops);
+      setTransactions(data.transactions);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Erreur Supabase");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   useEffect(() => {
-    setShopsState(getStoredShops());
-    setTransactionsState(getStoredTransactions());
+    refreshData();
   }, []);
 
   const value = useMemo<DataContextValue>(
     () => ({
+      error,
+      isLoading,
       shops,
       transactions,
-      setShops: (nextShops) => {
-        setShopsState(nextShops);
-        saveStoredShops(nextShops);
+      addShop: async (name) => {
+        const shop = await createShopInSupabase(name);
+        setShops((currentShops) => [...currentShops, shop]);
       },
-      setTransactions: (nextTransactions) => {
-        setTransactionsState(nextTransactions);
-        saveStoredTransactions(nextTransactions);
+      toggleShop: async (shopId) => {
+        const shop = shops.find((currentShop) => currentShop.id === shopId);
+
+        if (!shop) {
+          return;
+        }
+
+        const updatedShop = await updateShopInSupabase({
+          ...shop,
+          active: !shop.active
+        });
+        setShops((currentShops) =>
+          currentShops.map((currentShop) =>
+            currentShop.id === updatedShop.id ? updatedShop : currentShop
+          )
+        );
       },
-      resetData: () => {
-        window.localStorage.removeItem("etsy-dashboard-shops");
-        window.localStorage.removeItem("etsy-dashboard-transactions");
-        setShopsState(getStoredShops());
-        setTransactionsState(getStoredTransactions());
+      deleteShop: async (shopId) => {
+        await deleteShopInSupabase(shopId);
+        setShops((currentShops) => currentShops.filter((shop) => shop.id !== shopId));
+      },
+      addTransaction: async (transactionInput) => {
+        const transaction = await createTransactionInSupabase(transactionInput);
+        setTransactions((currentTransactions) => [transaction, ...currentTransactions]);
+      },
+      addTransactions: async (transactionInputs) => {
+        const createdTransactions = await createTransactionsInSupabase(transactionInputs);
+        setTransactions((currentTransactions) => [...createdTransactions, ...currentTransactions]);
+        return createdTransactions.length;
+      },
+      deleteTransaction: async (transactionId) => {
+        await deleteTransactionInSupabase(transactionId);
+        setTransactions((currentTransactions) =>
+          currentTransactions.filter((transaction) => transaction.id !== transactionId)
+        );
+      },
+      resetData: async () => {
+        setError("");
+        setIsLoading(true);
+
+        try {
+          const data = await resetSupabaseData();
+          setShops(data.shops);
+          setTransactions(data.transactions);
+        } catch (caughtError) {
+          setError(caughtError instanceof Error ? caughtError.message : "Erreur Supabase");
+        } finally {
+          setIsLoading(false);
+        }
       }
     }),
-    [shops, transactions]
+    [error, isLoading, shops, transactions]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

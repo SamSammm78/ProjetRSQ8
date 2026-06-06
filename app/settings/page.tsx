@@ -15,7 +15,7 @@ function toCsv(rows: Record<string, unknown>[]) {
 }
 
 export default function SettingsPage() {
-  const { transactions, resetData } = useClientData();
+  const { error, isLoading, transactions, resetData } = useClientData();
 
   function downloadCsv() {
     const csv = toCsv(transactions as unknown as Record<string, unknown>[]);
@@ -37,7 +37,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="font-semibold">Donnees du dashboard</h2>
             <p className="mt-1 text-sm text-ink/60">
-              Gestion des exports, preferences et donnees locales.
+              Gestion des exports, preferences et donnees Supabase.
             </p>
           </div>
         </div>
@@ -57,12 +57,15 @@ export default function SettingsPage() {
         </button>
         <button
           className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sage px-4 font-semibold text-clay"
-          onClick={resetData}
+          onClick={() => resetData()}
+          disabled={isLoading}
         >
           <RefreshCcw size={18} />
           Reinitialiser les donnees
         </button>
       </section>
+
+      {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
       <section className="rounded-lg border border-sage bg-white p-5 shadow-soft">
         <h2 className="font-semibold">Organisation</h2>

@@ -5,7 +5,6 @@ import { Download, Plus, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
-import { createStoredTransaction } from "@/lib/local-store";
 import { exportTransactions, normalizeTransactionInput } from "@/lib/api";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import type { TransactionInput } from "@/lib/types";
@@ -31,7 +30,8 @@ function createEmptyForm(): TransactionInput {
 }
 
 export default function TransactionsPage() {
-  const { shops, transactions, setTransactions } = useClientData();
+  const { addTransaction: saveTransaction, deleteTransaction: removeTransaction, error, isLoading, shops, transactions } =
+    useClientData();
   const [form, setForm] = useState<TransactionInput>(() => createEmptyForm());
   const sortedTransactions = useMemo(
     () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)),
@@ -47,19 +47,18 @@ export default function TransactionsPage() {
     }));
   }
 
-  function addTransaction() {
+  async function addTransaction() {
     const shopId = form.shopId || shops[0]?.id;
     if (!shopId) {
       return;
     }
 
-    const transaction = createStoredTransaction(normalizeTransactionInput({ ...form, shopId }));
-    setTransactions([transaction, ...transactions]);
+    await saveTransaction(normalizeTransactionInput({ ...form, shopId }));
     setForm({ ...createEmptyForm(), shopId, date: form.date, month: `${form.date.slice(0, 7)}-01` });
   }
 
-  function deleteTransaction(transactionId: string) {
-    setTransactions(transactions.filter((transaction) => transaction.id !== transactionId));
+  async function deleteTransaction(transactionId: string) {
+    await removeTransaction(transactionId);
   }
 
   function downloadJson() {
@@ -112,6 +111,9 @@ export default function TransactionsPage() {
           Ajouter la transaction
         </button>
       </section>
+
+      {isLoading ? <p className="text-sm text-ink/60">Chargement des transactions...</p> : null}
+      {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
       <TransactionsTable transactions={sortedTransactions} shops={shops} />
 

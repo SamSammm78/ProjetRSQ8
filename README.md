@@ -12,6 +12,7 @@ Dashboard mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice
 - Import CSV Etsy avec mapping client et detection des doublons `shop_id + order_number`.
 - Schema Supabase avec tables, calculs SQL et index.
 - Donnees initiales reprises du prompt.
+- Donnees chargees et enregistrees dans Supabase.
 
 ## Lancer en local
 
@@ -22,14 +23,16 @@ npm run dev
 
 Ouvre ensuite `http://localhost:3000`.
 
-L'app fonctionne immediatement avec `localStorage`. Les tables SQL sont preparees dans `supabase/schema.sql`.
+L'app utilise Supabase comme base de donnees. Les tables SQL sont preparees dans `supabase/schema.sql`.
 
 ## Supabase
 
 1. Cree un projet Supabase.
 2. Copie `.env.example` vers `.env.local`.
-3. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
-4. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
+3. Copie `.env.example` vers `.env.local`.
+4. Renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+5. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
+6. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
 
 Le schema contient les tables principales pour les boutiques et transactions.
 
@@ -56,7 +59,7 @@ Remplace l'URL du remote par celle de ton repository GitHub.
 
 - `app/` : pages principales du SaaS.
 - `components/` : composants React reutilisables.
-- `lib/` : types, calculs, donnees locales, parsing CSV et formatage.
+- `lib/` : types, calculs, acces Supabase, parsing CSV et formatage.
 - `data/seed.ts` : boutiques et transactions initiales.
 - `supabase/` : schema SQL et seed.
 

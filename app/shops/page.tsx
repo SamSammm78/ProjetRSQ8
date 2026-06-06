@@ -4,37 +4,29 @@ import { useState } from "react";
 import { Plus, Power, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
-import { createShop } from "@/lib/api";
 
 export default function ShopsPage() {
-  const { shops, transactions, setShops } = useClientData();
+  const { addShop, deleteShop: removeShop, error, isLoading, shops, toggleShop, transactions } =
+    useClientData();
   const [name, setName] = useState("");
 
-  function addShop() {
+  async function handleAddShop() {
     if (!name.trim()) {
       return;
     }
 
-    setShops([...shops, createShop({ name: name.trim(), active: true })]);
+    await addShop(name.trim());
     setName("");
   }
 
-  function toggleShop(shopId: string) {
-    setShops(
-      shops.map((shop) =>
-        shop.id === shopId ? { ...shop, active: !shop.active, updatedAt: new Date().toISOString() } : shop
-      )
-    );
-  }
-
-  function deleteShop(shopId: string) {
+  async function deleteShop(shopId: string) {
     const hasTransactions = transactions.some((transaction) => transaction.shopId === shopId);
     const confirmed =
       !hasTransactions ||
       window.confirm("Cette boutique a des transactions liees. Confirmer la suppression ?");
 
     if (confirmed) {
-      setShops(shops.filter((shop) => shop.id !== shopId));
+      await removeShop(shopId);
     }
   }
 
@@ -49,12 +41,15 @@ export default function ShopsPage() {
         />
         <button
           className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white"
-          onClick={addShop}
+          onClick={handleAddShop}
         >
           <Plus size={18} />
           Ajouter
         </button>
       </div>
+
+      {isLoading ? <p className="text-sm text-ink/60">Chargement des boutiques...</p> : null}
+      {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
       <div className="grid gap-3">
         {shops.map((shop) => {

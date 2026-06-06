@@ -4,12 +4,11 @@ import { useState } from "react";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
-import { createStoredTransaction } from "@/lib/local-store";
 import { parseEtsyCsv } from "@/lib/csv";
-import type { CsvImportRow } from "@/lib/types";
+import type { CsvImportRow, TransactionInput } from "@/lib/types";
 
 export default function ImportPage() {
-  const { shops, transactions, setTransactions } = useClientData();
+  const { addTransactions, error, shops, transactions } = useClientData();
   const [shopId, setShopId] = useState("");
   const [rows, setRows] = useState<CsvImportRow[]>([]);
   const [message, setMessage] = useState("");
@@ -24,7 +23,7 @@ export default function ImportPage() {
     setMessage(`${parsedRows.length} lignes pretes a importer.`);
   }
 
-  function importRows() {
+  async function importRows() {
     const selectedShopId = shopId || shops[0]?.id;
     if (!selectedShopId) {
       setMessage("Ajoute d'abord une boutique.");
@@ -34,10 +33,9 @@ export default function ImportPage() {
     const existingKeys = new Set(
       transactions.map((transaction) => `${transaction.shopId}:${transaction.orderNumber}`)
     );
-    const newTransactions = rows
+    const newTransactions: TransactionInput[] = rows
       .filter((row) => !existingKeys.has(`${selectedShopId}:${row.orderNumber}`))
-      .map((row) =>
-        createStoredTransaction({
+      .map((row) => ({
           shopId: selectedShopId,
           date: row.date,
           month: `${row.date.slice(0, 7)}-01`,
@@ -51,11 +49,10 @@ export default function ImportPage() {
           shippingPaid: row.shippingPaid,
           otherFees: row.otherFees,
           notes: row.notes
-        })
-      );
+        }));
 
-    setTransactions([...newTransactions, ...transactions]);
-    setMessage(`${newTransactions.length} transactions importees. Les doublons ont ete ignores.`);
+    const importedCount = await addTransactions(newTransactions);
+    setMessage(`${importedCount} transactions importees. Les doublons ont ete ignores.`);
   }
 
   return (
@@ -89,6 +86,7 @@ export default function ImportPage() {
         </label>
 
         {message ? <p className="text-sm font-medium text-moss">{message}</p> : null}
+        {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
         <button
           className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"

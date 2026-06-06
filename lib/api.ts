@@ -6,18 +6,6 @@ export function getShops(shops: Shop[] = seedShops) {
   return shops;
 }
 
-export function createShop(data: Pick<Shop, "name" | "active">): Shop {
-  const now = new Date().toISOString();
-
-  return {
-    id: crypto.randomUUID(),
-    name: data.name,
-    active: data.active,
-    createdAt: now,
-    updatedAt: now
-  };
-}
-
 export function getTransactions(transactions: Transaction[] = seedTransactions) {
   return transactions;
 }
