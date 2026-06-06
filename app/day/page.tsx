@@ -12,16 +12,16 @@ import { getDailyStats, getPreviousDayStats, getTransactionsByDate } from "@/lib
 import { formatCurrency, formatPercent } from "@/lib/format";
 
 export default function DayPage() {
-  const { shops, transactions, userId } = useClientData();
+  const { shops, transactions } = useClientData();
   const [date, setDate] = useState("2026-06-06");
   const [shopId, setShopId] = useState("");
 
   const dayTransactions = useMemo(
-    () => getTransactionsByDate(userId, date, shopId || undefined, transactions),
-    [date, shopId, transactions, userId]
+    () => getTransactionsByDate(date, shopId || undefined, transactions),
+    [date, shopId, transactions]
   );
-  const stats = getDailyStats(userId, date, shopId || undefined, transactions);
-  const previous = getPreviousDayStats(userId, date, shopId || undefined, transactions);
+  const stats = getDailyStats(date, shopId || undefined, transactions);
+  const previous = getPreviousDayStats(date, shopId || undefined, transactions);
   const profitDelta = stats.netProfit - previous.netProfit;
   const revenueDelta = stats.netRevenue - previous.netRevenue;
 

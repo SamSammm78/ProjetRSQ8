@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </span>
               </Link>
               <div className="rounded-lg border border-sage bg-white px-3 py-2 text-xs font-medium text-ink/70">
-                Mode demo
+                SaaS prive
               </div>
             </div>
           </header>

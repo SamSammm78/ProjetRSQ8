@@ -1,6 +1,6 @@
 # ProjetRSQ8
 
-SaaS mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice, les frais et la marge de plusieurs boutiques Etsy.
+Dashboard prive mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice, les frais et la marge de plusieurs boutiques Etsy.
 
 ## Ce qui est inclus
 
@@ -10,8 +10,8 @@ SaaS mobile-first pour suivre le chiffre d'affaires, le CA net, le benefice, les
 - Gestion illimitee des boutiques.
 - Ajout, suppression, export JSON et export CSV des transactions.
 - Import CSV Etsy avec mapping client et detection des doublons `shop_id + order_number`.
-- Schema Supabase avec tables, calculs SQL, index et policies RLS par utilisateur.
-- Donnees seed de demonstration reprises du prompt.
+- Schema Supabase prive avec tables, calculs SQL et index.
+- Donnees initiales reprises du prompt.
 
 ## Lancer en local
 
@@ -22,26 +22,22 @@ npm run dev
 
 Ouvre ensuite `http://localhost:3000`.
 
-L'app fonctionne immediatement en mode demo avec `localStorage`. Les donnees de production Supabase sont preparees dans `supabase/schema.sql`.
+L'app fonctionne immediatement avec `localStorage`. Les donnees de base privee sont preparees dans `supabase/schema.sql`.
 
 ## Supabase
 
 1. Cree un projet Supabase.
 2. Copie `.env.example` vers `.env.local`.
-3. Renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-4. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
-5. Cree un utilisateur demo, recupere son `auth.users.id`, remplace l'UUID dans `supabase/seed.sql`, puis execute le seed.
+3. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
+4. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
 
-Les policies RLS garantissent que chaque utilisateur ne voit et modifie que ses propres `shops` et `transactions`.
+Le schema ne contient pas de systeme de compte : il est prevu pour une base privee utilisee uniquement par toi.
 
 ## Deploiement Vercel
 
 1. Pousse le projet sur GitHub.
 2. Importe le repo dans Vercel.
-3. Ajoute les variables d'environnement Supabase.
-4. Lance le deploiement.
-
-Stripe est prevu via les variables `STRIPE_SECRET_KEY` et `NEXT_PUBLIC_STRIPE_ENABLED`, mais desactive par defaut.
+3. Lance le deploiement.
 
 ## Pousser sur GitHub
 
@@ -60,20 +56,20 @@ Remplace l'URL du remote par celle de ton repository GitHub.
 
 - `app/` : pages principales du SaaS.
 - `components/` : composants React reutilisables.
-- `lib/` : types, calculs, API demo, parsing CSV et formatage.
+- `lib/` : types, calculs, donnees locales, parsing CSV et formatage.
 - `data/seed.ts` : boutiques et transactions initiales.
-- `supabase/` : schema SQL, RLS et seed.
+- `supabase/` : schema SQL prive et seed.
 
 ## Fonctions metier
 
 Les fonctions demandees sont exposees dans `lib/api.ts` et `lib/calculations.ts` :
 
-- `getShops(userId)`
-- `createShop(userId, data)`
-- `getTransactionsByDate(userId, date, shopId?)`
-- `getDailyStats(userId, date, shopId?)`
-- `getPreviousDayStats(userId, date, shopId?)`
+- `getShops()`
+- `createShop(data)`
+- `getTransactionsByDate(date, shopId?)`
+- `getDailyStats(date, shopId?)`
+- `getPreviousDayStats(date, shopId?)`
 - `calculateTransactionMetrics(transaction)`
-- `exportTransactions(userId)`
+- `exportTransactions()`
 
 Le parsing CSV client est dans `lib/csv.ts`.

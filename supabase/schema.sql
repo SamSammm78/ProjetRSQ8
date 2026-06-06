@@ -1,15 +1,7 @@
 create extension if not exists "pgcrypto";
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  name text,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -18,7 +10,6 @@ create table if not exists public.shops (
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
   shop_id uuid not null references public.shops(id) on delete restrict,
   date date not null,
   month date not null,
@@ -50,39 +41,8 @@ create table if not exists public.transactions (
   unique (shop_id, order_number)
 );
 
-create index if not exists shops_user_id_idx on public.shops(user_id);
-create index if not exists transactions_user_date_idx on public.transactions(user_id, date);
-create index if not exists transactions_user_shop_idx on public.transactions(user_id, shop_id);
-
-alter table public.profiles enable row level security;
-alter table public.shops enable row level security;
-alter table public.transactions enable row level security;
-
-create policy "profiles are private"
-on public.profiles
-for all
-using (auth.uid() = id)
-with check (auth.uid() = id);
-
-create policy "shops are private"
-on public.shops
-for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
-create policy "transactions are private"
-on public.transactions
-for all
-using (auth.uid() = user_id)
-with check (
-  auth.uid() = user_id
-  and exists (
-    select 1
-    from public.shops
-    where shops.id = transactions.shop_id
-      and shops.user_id = auth.uid()
-  )
-);
+create index if not exists transactions_date_idx on public.transactions(date);
+create index if not exists transactions_shop_idx on public.transactions(shop_id);
 
 create or replace function public.touch_updated_at()
 returns trigger

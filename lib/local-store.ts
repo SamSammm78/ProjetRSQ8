@@ -22,23 +22,23 @@ function writeJson<T>(key: string, value: T) {
   }
 }
 
-export function getDemoShops() {
+export function getStoredShops() {
   return readJson<Shop[]>(SHOPS_KEY, seedShops);
 }
 
-export function saveDemoShops(shops: Shop[]) {
+export function saveStoredShops(shops: Shop[]) {
   writeJson(SHOPS_KEY, shops);
 }
 
-export function getDemoTransactions() {
+export function getStoredTransactions() {
   return readJson<Transaction[]>(TRANSACTIONS_KEY, seedTransactions);
 }
 
-export function saveDemoTransactions(transactions: Transaction[]) {
+export function saveStoredTransactions(transactions: Transaction[]) {
   writeJson(TRANSACTIONS_KEY, transactions);
 }
 
-export function createDemoTransaction(userId: string, data: TransactionInput) {
+export function createStoredTransaction(data: TransactionInput) {
   const metrics = calculateTransactionMetrics(data);
   const now = new Date().toISOString();
 
@@ -46,7 +46,6 @@ export function createDemoTransaction(userId: string, data: TransactionInput) {
     ...data,
     ...metrics,
     id: crypto.randomUUID(),
-    userId,
     createdAt: now,
     updatedAt: now
   };

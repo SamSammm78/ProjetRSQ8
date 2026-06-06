@@ -4,12 +4,12 @@ import { useState } from "react";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
-import { createDemoTransaction } from "@/lib/demo-store";
+import { createStoredTransaction } from "@/lib/local-store";
 import { parseEtsyCsv } from "@/lib/csv";
 import type { CsvImportRow } from "@/lib/types";
 
 export default function ImportPage() {
-  const { shops, transactions, setTransactions, userId } = useClientData();
+  const { shops, transactions, setTransactions } = useClientData();
   const [shopId, setShopId] = useState("");
   const [rows, setRows] = useState<CsvImportRow[]>([]);
   const [message, setMessage] = useState("");
@@ -37,7 +37,7 @@ export default function ImportPage() {
     const newTransactions = rows
       .filter((row) => !existingKeys.has(`${selectedShopId}:${row.orderNumber}`))
       .map((row) =>
-        createDemoTransaction(userId, {
+        createStoredTransaction({
           shopId: selectedShopId,
           date: row.date,
           month: `${row.date.slice(0, 7)}-01`,

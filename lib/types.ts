@@ -1,6 +1,5 @@
 export type Shop = {
   id: string;
-  userId: string;
   name: string;
   active: boolean;
   createdAt: string;
@@ -25,7 +24,6 @@ export type TransactionInput = {
 
 export type Transaction = TransactionInput & {
   id: string;
-  userId: string;
   netRevenue: number;
   netProfit: number;
   margin: number;

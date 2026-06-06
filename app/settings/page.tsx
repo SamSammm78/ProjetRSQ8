@@ -1,9 +1,8 @@
 "use client";
 
-import { Download, RefreshCcw, ShieldCheck } from "lucide-react";
+import { Database, Download, RefreshCcw } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
-import { DEMO_USER_EMAIL } from "@/data/seed";
 
 function toCsv(rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
@@ -16,7 +15,7 @@ function toCsv(rows: Record<string, unknown>[]) {
 }
 
 export default function SettingsPage() {
-  const { transactions, resetDemo } = useClientData();
+  const { transactions, resetData } = useClientData();
 
   function downloadCsv() {
     const csv = toCsv(transactions as unknown as Record<string, unknown>[]);
@@ -29,21 +28,22 @@ export default function SettingsPage() {
   }
 
   return (
-    <PageShell eyebrow="Compte" title="Parametres">
+    <PageShell eyebrow="ProjetRSQ8" title="Parametres">
       <section className="grid gap-4 rounded-lg border border-sage bg-white p-5 shadow-soft">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-lg bg-mist text-moss">
-            <ShieldCheck size={21} />
+            <Database size={21} />
           </span>
           <div>
-            <h2 className="font-semibold">Compte demo</h2>
-            <p className="mt-1 text-sm text-ink/60">{DEMO_USER_EMAIL}</p>
+            <h2 className="font-semibold">Dashboard prive</h2>
+            <p className="mt-1 text-sm text-ink/60">
+              Donnees personnelles stockees dans ton espace projet.
+            </p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Preference label="Devise" value="EUR" />
           <Preference label="Dates" value="ISO YYYY-MM-DD" />
-          <Preference label="Paiement SaaS" value="Stripe prevu" />
         </div>
       </section>
 
@@ -57,18 +57,18 @@ export default function SettingsPage() {
         </button>
         <button
           className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sage px-4 font-semibold text-clay"
-          onClick={resetDemo}
+          onClick={resetData}
         >
           <RefreshCcw size={18} />
-          Reinitialiser la demo
+          Reinitialiser les donnees
         </button>
       </section>
 
       <section className="rounded-lg border border-sage bg-white p-5 shadow-soft">
-        <h2 className="font-semibold">Securite des donnees</h2>
+        <h2 className="font-semibold">Usage prive</h2>
         <p className="mt-2 text-sm leading-6 text-ink/65">
-          En production, chaque requete filtre par utilisateur et les policies Supabase RLS
-          empechent l&apos;acces aux boutiques et transactions d&apos;un autre compte.
+          L&apos;application ne contient plus de systeme de compte. Elle est pensee pour une
+          utilisation personnelle avec tes boutiques, tes transactions et tes exports.
         </p>
       </section>
     </PageShell>

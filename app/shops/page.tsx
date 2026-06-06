@@ -7,7 +7,7 @@ import { useClientData } from "@/components/client-data";
 import { createShop } from "@/lib/api";
 
 export default function ShopsPage() {
-  const { shops, transactions, setShops, userId } = useClientData();
+  const { shops, transactions, setShops } = useClientData();
   const [name, setName] = useState("");
 
   function addShop() {
@@ -15,7 +15,7 @@ export default function ShopsPage() {
       return;
     }
 
-    setShops([...shops, createShop(userId, { name: name.trim(), active: true })]);
+    setShops([...shops, createShop({ name: name.trim(), active: true })]);
     setName("");
   }
 

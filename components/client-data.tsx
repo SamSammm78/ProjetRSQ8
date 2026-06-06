@@ -1,22 +1,20 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { DEMO_USER_ID } from "@/data/seed";
 import {
-  getDemoShops,
-  getDemoTransactions,
-  saveDemoShops,
-  saveDemoTransactions
-} from "@/lib/demo-store";
+  getStoredShops,
+  getStoredTransactions,
+  saveStoredShops,
+  saveStoredTransactions
+} from "@/lib/local-store";
 import type { Shop, Transaction } from "@/lib/types";
 
 type DataContextValue = {
-  userId: string;
   shops: Shop[];
   transactions: Transaction[];
   setShops: (shops: Shop[]) => void;
   setTransactions: (transactions: Transaction[]) => void;
-  resetDemo: () => void;
+  resetData: () => void;
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -26,28 +24,27 @@ export function ClientDataProvider({ children }: { children: React.ReactNode }) 
   const [transactions, setTransactionsState] = useState<Transaction[]>([]);
 
   useEffect(() => {
-    setShopsState(getDemoShops());
-    setTransactionsState(getDemoTransactions());
+    setShopsState(getStoredShops());
+    setTransactionsState(getStoredTransactions());
   }, []);
 
   const value = useMemo<DataContextValue>(
     () => ({
-      userId: DEMO_USER_ID,
       shops,
       transactions,
       setShops: (nextShops) => {
         setShopsState(nextShops);
-        saveDemoShops(nextShops);
+        saveStoredShops(nextShops);
       },
       setTransactions: (nextTransactions) => {
         setTransactionsState(nextTransactions);
-        saveDemoTransactions(nextTransactions);
+        saveStoredTransactions(nextTransactions);
       },
-      resetDemo: () => {
+      resetData: () => {
         window.localStorage.removeItem("etsy-dashboard-shops");
         window.localStorage.removeItem("etsy-dashboard-transactions");
-        setShopsState(getDemoShops());
-        setTransactionsState(getDemoTransactions());
+        setShopsState(getStoredShops());
+        setTransactionsState(getStoredTransactions());
       }
     }),
     [shops, transactions]

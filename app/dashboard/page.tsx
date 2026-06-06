@@ -49,10 +49,10 @@ function getDatesBetween(startDate: string, endDate: string) {
 }
 
 export default function DashboardPage() {
-  const { shops, transactions, userId } = useClientData();
+  const { shops, transactions } = useClientData();
   const [startDate, setStartDate] = useState(monthStart);
   const [endDate, setEndDate] = useState(today);
-  const userTransactions = transactions.filter((transaction) => transaction.userId === userId);
+  const userTransactions = transactions;
 
   const todayStats = aggregateDailyStats(
     userTransactions.filter((transaction) => transaction.date === today)

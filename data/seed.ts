@@ -1,14 +1,10 @@
 import type { Shop, Transaction } from "@/lib/types";
 
-export const DEMO_USER_ID = "demo-user";
-export const DEMO_USER_EMAIL = "demo@example.com";
-
 const now = "2026-06-06T00:00:00.000Z";
 
 export const seedShops: Shop[] = [
   {
     id: "shop-lanaartsco",
-    userId: DEMO_USER_ID,
     name: "LanaArtsCo",
     active: true,
     createdAt: now,
@@ -16,7 +12,6 @@ export const seedShops: Shop[] = [
   },
   {
     id: "shop-luxuriumarts",
-    userId: DEMO_USER_ID,
     name: "LuxuriumArts",
     active: true,
     createdAt: now,
@@ -24,7 +19,6 @@ export const seedShops: Shop[] = [
   },
   {
     id: "shop-oaklivings",
-    userId: DEMO_USER_ID,
     name: "OakLivings",
     active: true,
     createdAt: now,
@@ -32,7 +26,6 @@ export const seedShops: Shop[] = [
   },
   {
     id: "shop-sequoiainteriors",
-    userId: DEMO_USER_ID,
     name: "SequoiaInteriors",
     active: true,
     createdAt: now,
@@ -43,7 +36,6 @@ export const seedShops: Shop[] = [
 export const seedTransactions: Transaction[] = [
   {
     id: "txn-4079480146",
-    userId: DEMO_USER_ID,
     shopId: "shop-sequoiainteriors",
     date: "2026-06-06",
     month: "2026-06-01",
@@ -65,7 +57,6 @@ export const seedTransactions: Transaction[] = [
   },
   {
     id: "txn-4082071229",
-    userId: DEMO_USER_ID,
     shopId: "shop-sequoiainteriors",
     date: "2026-06-04",
     month: "2026-06-01",
@@ -87,7 +78,6 @@ export const seedTransactions: Transaction[] = [
   },
   {
     id: "txn-4083802925",
-    userId: DEMO_USER_ID,
     shopId: "shop-sequoiainteriors",
     date: "2026-06-06",
     month: "2026-06-01",
@@ -109,7 +99,6 @@ export const seedTransactions: Transaction[] = [
   },
   {
     id: "txn-4083437509",
-    userId: DEMO_USER_ID,
     shopId: "shop-oaklivings",
     date: "2026-06-06",
     month: "2026-06-01",
@@ -131,7 +120,6 @@ export const seedTransactions: Transaction[] = [
   },
   {
     id: "txn-luxuriumarts-20260601",
-    userId: DEMO_USER_ID,
     shopId: "shop-luxuriumarts",
     date: "2026-06-01",
     month: "2026-06-01",
@@ -153,7 +141,6 @@ export const seedTransactions: Transaction[] = [
   },
   {
     id: "txn-lanaartsco-20260601",
-    userId: DEMO_USER_ID,
     shopId: "shop-lanaartsco",
     date: "2026-06-01",
     month: "2026-06-01",

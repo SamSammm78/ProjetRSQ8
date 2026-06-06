@@ -2,16 +2,15 @@ import { seedShops, seedTransactions } from "@/data/seed";
 import { aggregateDailyStats, previousIsoDay } from "@/lib/calculations";
 import type { Shop, Transaction, TransactionInput } from "@/lib/types";
 
-export function getShops(userId: string, shops: Shop[] = seedShops) {
-  return shops.filter((shop) => shop.userId === userId);
+export function getShops(shops: Shop[] = seedShops) {
+  return shops;
 }
 
-export function createShop(userId: string, data: Pick<Shop, "name" | "active">): Shop {
+export function createShop(data: Pick<Shop, "name" | "active">): Shop {
   const now = new Date().toISOString();
 
   return {
     id: crypto.randomUUID(),
-    userId,
     name: data.name,
     active: data.active,
     createdAt: now,
@@ -19,22 +18,17 @@ export function createShop(userId: string, data: Pick<Shop, "name" | "active">):
   };
 }
 
-export function getTransactions(
-  userId: string,
-  transactions: Transaction[] = seedTransactions
-) {
-  return transactions.filter((transaction) => transaction.userId === userId);
+export function getTransactions(transactions: Transaction[] = seedTransactions) {
+  return transactions;
 }
 
 export function getTransactionsByDate(
-  userId: string,
   date: string,
   shopId?: string,
   transactions: Transaction[] = seedTransactions
 ) {
   return transactions.filter((transaction) => {
     return (
-      transaction.userId === userId &&
       transaction.date === date &&
       (!shopId || transaction.shopId === shopId)
     );
@@ -42,28 +36,23 @@ export function getTransactionsByDate(
 }
 
 export function getDailyStats(
-  userId: string,
   date: string,
   shopId?: string,
   transactions: Transaction[] = seedTransactions
 ) {
-  return aggregateDailyStats(getTransactionsByDate(userId, date, shopId, transactions));
+  return aggregateDailyStats(getTransactionsByDate(date, shopId, transactions));
 }
 
 export function getPreviousDayStats(
-  userId: string,
   date: string,
   shopId?: string,
   transactions: Transaction[] = seedTransactions
 ) {
-  return getDailyStats(userId, previousIsoDay(date), shopId, transactions);
+  return getDailyStats(previousIsoDay(date), shopId, transactions);
 }
 
-export function exportTransactions(
-  userId: string,
-  transactions: Transaction[] = seedTransactions
-) {
-  return getTransactions(userId, transactions);
+export function exportTransactions(transactions: Transaction[] = seedTransactions) {
+  return getTransactions(transactions);
 }
 
 export function normalizeTransactionInput(input: TransactionInput): TransactionInput {
