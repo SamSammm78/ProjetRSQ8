@@ -27,10 +27,8 @@ import { MetricGrid } from "@/components/metric-grid";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 import { addDays, aggregateDailyStats } from "@/lib/calculations";
+import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent } from "@/lib/format";
-
-const today = "2026-06-06";
-const monthStart = "2026-06-01";
 
 function isBetween(date: string, startDate: string, endDate: string) {
   return date >= startDate && date <= endDate;
@@ -50,8 +48,10 @@ function getDatesBetween(startDate: string, endDate: string) {
 
 export default function DashboardPage() {
   const { shops, transactions } = useClientData();
-  const [startDate, setStartDate] = useState(monthStart);
-  const [endDate, setEndDate] = useState(today);
+  const [today] = useState(() => getTodayIsoDate());
+  const [monthStart] = useState(() => getMonthStartIsoDate());
+  const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
+  const [endDate, setEndDate] = useState(() => getTodayIsoDate());
   const userTransactions = transactions;
 
   const todayStats = aggregateDailyStats(

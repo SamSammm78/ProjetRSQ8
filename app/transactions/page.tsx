@@ -7,27 +7,32 @@ import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
 import { createStoredTransaction } from "@/lib/local-store";
 import { exportTransactions, normalizeTransactionInput } from "@/lib/api";
+import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import type { TransactionInput } from "@/lib/types";
 
-const emptyForm: TransactionInput = {
-  shopId: "",
-  date: "2026-06-06",
-  month: "2026-06-01",
-  orderNumber: "",
-  status: "Payee",
-  grossRevenue: 0,
-  refunds: 0,
-  etsyFees: 0,
-  etsyAds: 0,
-  productCost: 0,
-  shippingPaid: 0,
-  otherFees: 0,
-  notes: ""
-};
+function createEmptyForm(): TransactionInput {
+  const today = getTodayIsoDate();
+
+  return {
+    shopId: "",
+    date: today,
+    month: getMonthStartIsoDate(),
+    orderNumber: "",
+    status: "Payee",
+    grossRevenue: 0,
+    refunds: 0,
+    etsyFees: 0,
+    etsyAds: 0,
+    productCost: 0,
+    shippingPaid: 0,
+    otherFees: 0,
+    notes: ""
+  };
+}
 
 export default function TransactionsPage() {
   const { shops, transactions, setTransactions } = useClientData();
-  const [form, setForm] = useState<TransactionInput>(emptyForm);
+  const [form, setForm] = useState<TransactionInput>(() => createEmptyForm());
   const sortedTransactions = useMemo(
     () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)),
     [transactions]
@@ -50,7 +55,7 @@ export default function TransactionsPage() {
 
     const transaction = createStoredTransaction(normalizeTransactionInput({ ...form, shopId }));
     setTransactions([transaction, ...transactions]);
-    setForm({ ...emptyForm, shopId, date: form.date, month: `${form.date.slice(0, 7)}-01` });
+    setForm({ ...createEmptyForm(), shopId, date: form.date, month: `${form.date.slice(0, 7)}-01` });
   }
 
   function deleteTransaction(transactionId: string) {

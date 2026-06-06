@@ -9,11 +9,12 @@ import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
 import { getDailyStats, getPreviousDayStats, getTransactionsByDate } from "@/lib/api";
+import { getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent } from "@/lib/format";
 
 export default function DayPage() {
   const { shops, transactions } = useClientData();
-  const [date, setDate] = useState("2026-06-06");
+  const [date, setDate] = useState(() => getTodayIsoDate());
   const [shopId, setShopId] = useState("");
 
   const dayTransactions = useMemo(
