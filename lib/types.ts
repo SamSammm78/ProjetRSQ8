@@ -56,3 +56,21 @@ export type CsvImportRow = {
   otherFees: number;
   notes: string;
 };
+
+export type SupplierOrderStatus = "active" | "completed" | "cancelled";
+
+export type SupplierOrder = {
+  id: string;
+  platform: string;
+  accountUsed: string;
+  orderDate: string;
+  orderNumber: string;
+  totalAmount: number;
+  orderLink: string;
+  country: string;
+  notes: string;
+  status: SupplierOrderStatus;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

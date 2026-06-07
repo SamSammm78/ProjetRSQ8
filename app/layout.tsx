@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarChart3, CalendarDays, Download, Settings, Store, WalletCards } from "lucide-react";
+import { BarChart3, ClipboardList, History, Settings, Store, WalletCards } from "lucide-react";
 import { Providers } from "@/components/providers";
 import "@/app/globals.css";
 
@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { href: "/day", label: "Jour", icon: CalendarDays },
-  { href: "/transactions", label: "Transactions", icon: WalletCards },
   { href: "/shops", label: "Boutiques", icon: Store },
-  { href: "/import", label: "Import", icon: Download },
+  { href: "/transactions", label: "Transactions", icon: WalletCards },
+  { href: "/commandes", label: "Commandes", icon: ClipboardList },
+  { href: "/commandes/historique", label: "Historique des commandes", icon: History },
   { href: "/settings", label: "Parametres", icon: Settings }
 ];
 

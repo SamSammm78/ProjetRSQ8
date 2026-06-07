@@ -3,6 +3,7 @@
 import { Database, Download, RefreshCcw } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
+import { ImportDataPanel } from "@/components/settings/import-data-panel";
 
 function toCsv(rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
@@ -47,6 +48,23 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <section className="grid gap-4 rounded-lg border border-sage bg-white p-5 shadow-soft">
+        <div>
+          <h2 className="font-semibold">Gestion des donnees</h2>
+          <p className="mt-1 text-sm text-ink/60">
+            Import, export, sauvegarde et reinitialisation des donnees.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ActionLabel label="Importer des donnees" />
+          <ActionLabel label="Exporter les donnees" />
+          <ActionLabel label="Sauvegarde" />
+          <ActionLabel label="Reinitialisation des donnees" />
+        </div>
+      </section>
+
+      <ImportDataPanel />
+
       <section className="grid gap-3 rounded-lg border border-sage bg-white p-5 shadow-soft sm:grid-cols-2">
         <button
           className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sage px-4 font-semibold"
@@ -75,6 +93,14 @@ export default function SettingsPage() {
         </p>
       </section>
     </PageShell>
+  );
+}
+
+function ActionLabel({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg bg-mist p-4">
+      <p className="text-sm font-semibold">{label}</p>
+    </div>
   );
 }
 

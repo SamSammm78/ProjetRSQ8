@@ -40,6 +40,9 @@ Si les boutiques ou transactions existent dans Supabase mais ne s'affichent pas 
 execute `supabase/fix-dashboard-access.sql`. Cela retire les anciennes policies de compte et
 autorise le dashboard a lire/ecrire dans `shops` et `transactions`.
 
+Pour le module Commandes, execute aussi `supabase/supplier-orders.sql` si la table
+`supplier_orders` n'existe pas encore ou si les colonnes `status` / `completed_at` manquent.
+
 ## Deploiement Vercel
 
 1. Pousse le projet sur GitHub.
