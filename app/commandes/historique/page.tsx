@@ -80,7 +80,7 @@ export default function HistoriqueCommandesPage() {
           href="/commandes"
         >
           <ArrowLeft size={18} />
-          Commandes
+          Retour aux commandes
         </Link>
       }
     >

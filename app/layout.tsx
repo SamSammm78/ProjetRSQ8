@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarChart3, ClipboardList, History, Settings, Store, WalletCards } from "lucide-react";
+import { BarChart3, ClipboardList, Settings, Store, WalletCards } from "lucide-react";
 import { Providers } from "@/components/providers";
 import "@/app/globals.css";
 
@@ -14,7 +14,6 @@ const navItems = [
   { href: "/shops", label: "Boutiques", icon: Store },
   { href: "/transactions", label: "Transactions", icon: WalletCards },
   { href: "/commandes", label: "Commandes", icon: ClipboardList },
-  { href: "/commandes/historique", label: "Historique des commandes", icon: History },
   { href: "/settings", label: "Parametres", icon: Settings }
 ];
 
@@ -63,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main>{children}</main>
           </div>
 
-          <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-sage bg-white lg:hidden">
+          <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-sage bg-white lg:hidden">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
