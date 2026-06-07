@@ -74,3 +74,14 @@ export type SupplierOrder = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type SupplierOrderInput = {
+  platform: string;
+  accountUsed: string;
+  orderDate: string;
+  orderNumber: string;
+  totalAmount: number;
+  orderLink: string;
+  country: string;
+  notes: string;
+};

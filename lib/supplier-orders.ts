@@ -1,6 +1,6 @@
 "use client";
 
-import type { SupplierOrder } from "@/lib/types";
+import type { SupplierOrder, SupplierOrderInput } from "@/lib/types";
 import { createClient } from "@/utils/supabase/client";
 
 type SupplierOrderRow = {
@@ -51,6 +51,30 @@ export async function getActiveSupplierOrders() {
   }
 
   return (data ?? []).map((row) => mapSupplierOrder(row as SupplierOrderRow));
+}
+
+export async function createSupplierOrder(input: SupplierOrderInput) {
+  const { data, error } = await supabase
+    .from("supplier_orders")
+    .insert({
+      platform: input.platform,
+      account_used: input.accountUsed,
+      order_date: input.orderDate,
+      order_number: input.orderNumber,
+      total_amount: input.totalAmount,
+      order_link: input.orderLink,
+      country: input.country,
+      notes: input.notes,
+      status: "active"
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapSupplierOrder(data as SupplierOrderRow);
 }
 
 export async function getHistoricalSupplierOrders(startDate: string, endDate: string) {

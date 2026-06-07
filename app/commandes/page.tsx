@@ -2,15 +2,36 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, History } from "lucide-react";
+import { Check, History, Plus, X } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
-import { completeSupplierOrder, getActiveSupplierOrders } from "@/lib/supplier-orders";
+import {
+  completeSupplierOrder,
+  createSupplierOrder,
+  getActiveSupplierOrders
+} from "@/lib/supplier-orders";
+import { getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { SupplierOrder } from "@/lib/types";
+import type { SupplierOrder, SupplierOrderInput } from "@/lib/types";
+
+function createEmptyOrderForm(): SupplierOrderInput {
+  return {
+    platform: "",
+    accountUsed: "",
+    orderDate: getTodayIsoDate(),
+    orderNumber: "",
+    totalAmount: 0,
+    orderLink: "",
+    country: "",
+    notes: ""
+  };
+}
 
 export default function CommandesPage() {
   const [error, setError] = useState("");
+  const [form, setForm] = useState<SupplierOrderInput>(() => createEmptyOrderForm());
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
 
   async function loadOrders() {
@@ -30,6 +51,32 @@ export default function CommandesPage() {
     loadOrders();
   }, []);
 
+  function updateFormField(key: keyof SupplierOrderInput, value: string) {
+    setForm((currentForm) => ({
+      ...currentForm,
+      [key]: key === "totalAmount" ? Number(value) : value
+    }));
+  }
+
+  async function addOrder() {
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      await createSupplierOrder(form);
+      setForm(createEmptyOrderForm());
+      setIsFormOpen(false);
+      await loadOrders();
+    } catch (caughtError) {
+      console.error("Erreur Supabase lors de l'ajout de commande", caughtError);
+      const message = caughtError instanceof Error ? caughtError.message : "Erreur Supabase";
+      setError(message);
+      window.alert(`Erreur Supabase : ${message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function markCompleted(orderId: string) {
     setError("");
 
@@ -46,20 +93,94 @@ export default function CommandesPage() {
       eyebrow="Commandes"
       title="Commandes en cours"
       actions={
-        <Link
-          className="focus-ring inline-flex h-11 items-center gap-2 rounded-lg border border-sage bg-white px-4 text-sm font-semibold"
-          href="/commandes/historique"
-        >
-          <History size={18} />
-          Voir l&apos;historique
-        </Link>
+        <>
+          <button
+            className="focus-ring inline-flex h-11 items-center gap-2 rounded-lg bg-moss px-4 text-sm font-semibold text-white"
+            onClick={() => setIsFormOpen(true)}
+          >
+            <Plus size={18} />
+            Ajouter une commande
+          </button>
+          <Link
+            className="focus-ring inline-flex h-11 items-center gap-2 rounded-lg border border-sage bg-white px-4 text-sm font-semibold"
+            href="/commandes/historique"
+          >
+            <History size={18} />
+            Voir l&apos;historique
+          </Link>
+        </>
       }
     >
+      {isFormOpen ? (
+        <section className="rounded-lg border border-sage bg-white p-4 shadow-soft">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Nouvelle commande</h2>
+            <button
+              className="focus-ring grid h-9 w-9 place-items-center rounded-lg border border-sage"
+              onClick={() => setIsFormOpen(false)}
+              title="Fermer"
+            >
+              <X size={17} />
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <InputField label="Plateforme" value={form.platform} onChange={(value) => updateFormField("platform", value)} />
+            <InputField label="Compte utilise" value={form.accountUsed} onChange={(value) => updateFormField("accountUsed", value)} />
+            <InputField label="Date de commande" type="date" value={form.orderDate} onChange={(value) => updateFormField("orderDate", value)} />
+            <InputField label="Numero de commande" value={form.orderNumber} onChange={(value) => updateFormField("orderNumber", value)} />
+            <InputField label="Montant total" type="number" value={form.totalAmount} onChange={(value) => updateFormField("totalAmount", value)} />
+            <InputField label="Lien commande" value={form.orderLink} onChange={(value) => updateFormField("orderLink", value)} />
+            <InputField label="Pays" value={form.country} onChange={(value) => updateFormField("country", value)} />
+            <label className="grid gap-2 text-sm font-medium text-ink/70 xl:col-span-4">
+              Notes
+              <textarea
+                className="focus-ring min-h-24 rounded-lg border border-sage bg-mist px-3 py-3 text-ink"
+                value={form.notes}
+                onChange={(event) => updateFormField("notes", event.target.value)}
+              />
+            </label>
+          </div>
+          <button
+            className="focus-ring mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            disabled={isSubmitting}
+            onClick={addOrder}
+          >
+            <Plus size={18} />
+            Valider la commande
+          </button>
+        </section>
+      ) : null}
+
       {isLoading ? <p className="text-sm text-ink/60">Chargement des commandes...</p> : null}
       {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
       <SupplierOrdersTable orders={orders} onComplete={markCompleted} />
     </PageShell>
+  );
+}
+
+function InputField({
+  label,
+  onChange,
+  type = "text",
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string | number;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink/70">
+      {label}
+      <input
+        className="focus-ring h-12 rounded-lg border border-sage bg-mist px-3 text-ink"
+        step={type === "number" ? "0.01" : undefined}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 
