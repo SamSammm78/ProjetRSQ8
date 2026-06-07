@@ -42,6 +42,7 @@ autorise le dashboard a lire/ecrire dans `shops` et `transactions`.
 
 Pour le module Commandes, execute aussi `supabase/supplier-orders.sql` si la table
 `supplier_orders` n'existe pas encore ou si les colonnes `status` / `completed_at` manquent.
+Ce script cree aussi le bucket Storage `supplier-orders` et la table `supplier_order_images`.
 
 ## Deploiement Vercel
 

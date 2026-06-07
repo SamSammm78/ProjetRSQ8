@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Check, History, Plus, X } from "lucide-react";
+import { OrderDetailModal } from "@/components/supplier-orders/order-detail-modal";
+import { OrderImagePicker } from "@/components/supplier-orders/order-image-picker";
 import { PageShell } from "@/components/page-shell";
 import {
   completeSupplierOrder,
@@ -29,10 +31,12 @@ function createEmptyOrderForm(): SupplierOrderInput {
 export default function CommandesPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState<SupplierOrderInput>(() => createEmptyOrderForm());
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<SupplierOrder | null>(null);
 
   async function loadOrders() {
     setError("");
@@ -63,8 +67,9 @@ export default function CommandesPage() {
     setIsSubmitting(true);
 
     try {
-      await createSupplierOrder(form);
+      await createSupplierOrder(form, imageFiles);
       setForm(createEmptyOrderForm());
+      setImageFiles([]);
       setIsFormOpen(false);
       await loadOrders();
     } catch (caughtError) {
@@ -117,7 +122,10 @@ export default function CommandesPage() {
             <h2 className="text-base font-semibold">Nouvelle commande</h2>
             <button
               className="focus-ring grid h-9 w-9 place-items-center rounded-lg border border-sage"
-              onClick={() => setIsFormOpen(false)}
+              onClick={() => {
+                setIsFormOpen(false);
+                setImageFiles([]);
+              }}
               title="Fermer"
             >
               <X size={17} />
@@ -139,6 +147,7 @@ export default function CommandesPage() {
                 onChange={(event) => updateFormField("notes", event.target.value)}
               />
             </label>
+            <OrderImagePicker files={imageFiles} onChange={setImageFiles} />
           </div>
           <button
             className="focus-ring mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -154,7 +163,24 @@ export default function CommandesPage() {
       {isLoading ? <p className="text-sm text-ink/60">Chargement des commandes...</p> : null}
       {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
-      <SupplierOrdersTable orders={orders} onComplete={markCompleted} />
+      <SupplierOrdersTable
+        orders={orders}
+        onComplete={markCompleted}
+        onOpen={(order) => setSelectedOrder(order)}
+      />
+
+      {selectedOrder ? (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onOrderChange={(updatedOrder) => {
+            setSelectedOrder(updatedOrder);
+            setOrders((currentOrders) =>
+              currentOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
+            );
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 }
@@ -186,10 +212,12 @@ function InputField({
 
 function SupplierOrdersTable({
   orders,
-  onComplete
+  onComplete,
+  onOpen
 }: {
   orders: SupplierOrder[];
   onComplete: (orderId: string) => void | Promise<void>;
+  onOpen: (order: SupplierOrder) => void;
 }) {
   if (orders.length === 0) {
     return (
@@ -212,6 +240,7 @@ function SupplierOrdersTable({
               <th className="px-4 py-3">Montant</th>
               <th className="px-4 py-3">Lien</th>
               <th className="px-4 py-3">Pays</th>
+              <th className="px-4 py-3">Images</th>
               <th className="px-4 py-3">Notes</th>
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
@@ -222,7 +251,14 @@ function SupplierOrdersTable({
                 <td className="px-4 py-4 font-medium">{order.platform || "-"}</td>
                 <td className="px-4 py-4">{order.accountUsed || "-"}</td>
                 <td className="px-4 py-4">{formatDate(order.orderDate)}</td>
-                <td className="px-4 py-4">{order.orderNumber || "-"}</td>
+                <td className="px-4 py-4">
+                  <button
+                    className="font-semibold text-moss underline"
+                    onClick={() => onOpen(order)}
+                  >
+                    {order.orderNumber || "Ouvrir"}
+                  </button>
+                </td>
                 <td className="px-4 py-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
                 <td className="px-4 py-4">
                   {order.orderLink ? (
@@ -234,6 +270,11 @@ function SupplierOrdersTable({
                   )}
                 </td>
                 <td className="px-4 py-4">{order.country || "-"}</td>
+                <td className="px-4 py-4">
+                  <button className="font-medium text-ink/70" onClick={() => onOpen(order)}>
+                    📷 {order.images.length}
+                  </button>
+                </td>
                 <td className="max-w-64 px-4 py-4 text-ink/65">{order.notes || "-"}</td>
                 <td className="px-4 py-4 text-right">
                   <button

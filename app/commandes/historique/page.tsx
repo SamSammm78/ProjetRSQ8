@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, RotateCcw, Search } from "lucide-react";
 import { KpiCard } from "@/components/kpi-card";
 import { MetricGrid } from "@/components/metric-grid";
+import { OrderDetailModal } from "@/components/supplier-orders/order-detail-modal";
 import { PageShell } from "@/components/page-shell";
 import { getHistoricalSupplierOrders } from "@/lib/supplier-orders";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
@@ -18,6 +19,7 @@ export default function HistoriqueCommandesPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<SupplierOrder | null>(null);
   const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
 
   async function loadOrders(nextStartDate = appliedStartDate, nextEndDate = appliedEndDate) {
@@ -117,7 +119,20 @@ export default function HistoriqueCommandesPage() {
         <TotalsPanel title="Montant total par pays" totals={stats.byCountry} />
       </section>
 
-      <HistoricalOrdersTable orders={orders} />
+      <HistoricalOrdersTable orders={orders} onOpen={(order) => setSelectedOrder(order)} />
+
+      {selectedOrder ? (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onOrderChange={(updatedOrder) => {
+            setSelectedOrder(updatedOrder);
+            setOrders((currentOrders) =>
+              currentOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
+            );
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 }
@@ -176,7 +191,13 @@ function TotalsPanel({ title, totals }: { title: string; totals: Record<string, 
   );
 }
 
-function HistoricalOrdersTable({ orders }: { orders: SupplierOrder[] }) {
+function HistoricalOrdersTable({
+  orders,
+  onOpen
+}: {
+  orders: SupplierOrder[];
+  onOpen: (order: SupplierOrder) => void;
+}) {
   if (orders.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-sage bg-white p-8 text-center text-sm text-ink/60">
@@ -198,6 +219,7 @@ function HistoricalOrdersTable({ orders }: { orders: SupplierOrder[] }) {
               <th className="px-4 py-3">Montant</th>
               <th className="px-4 py-3">Lien</th>
               <th className="px-4 py-3">Pays</th>
+              <th className="px-4 py-3">Images</th>
               <th className="px-4 py-3">Notes</th>
               <th className="px-4 py-3">Terminee le</th>
             </tr>
@@ -208,7 +230,14 @@ function HistoricalOrdersTable({ orders }: { orders: SupplierOrder[] }) {
                 <td className="px-4 py-4 font-medium">{order.platform || "-"}</td>
                 <td className="px-4 py-4">{order.accountUsed || "-"}</td>
                 <td className="px-4 py-4">{formatDate(order.orderDate)}</td>
-                <td className="px-4 py-4">{order.orderNumber || "-"}</td>
+                <td className="px-4 py-4">
+                  <button
+                    className="font-semibold text-moss underline"
+                    onClick={() => onOpen(order)}
+                  >
+                    {order.orderNumber || "Ouvrir"}
+                  </button>
+                </td>
                 <td className="px-4 py-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
                 <td className="px-4 py-4">
                   {order.orderLink ? (
@@ -220,6 +249,11 @@ function HistoricalOrdersTable({ orders }: { orders: SupplierOrder[] }) {
                   )}
                 </td>
                 <td className="px-4 py-4">{order.country || "-"}</td>
+                <td className="px-4 py-4">
+                  <button className="font-medium text-ink/70" onClick={() => onOpen(order)}>
+                    📷 {order.images.length}
+                  </button>
+                </td>
                 <td className="max-w-64 px-4 py-4 text-ink/65">{order.notes || "-"}</td>
                 <td className="px-4 py-4">
                   {order.completedAt ? formatDate(order.completedAt.slice(0, 10)) : "-"}

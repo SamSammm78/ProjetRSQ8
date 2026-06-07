@@ -71,6 +71,7 @@ export type SupplierOrder = {
   notes: string;
   status: SupplierOrderStatus;
   completedAt: string | null;
+  images: SupplierOrderImage[];
   createdAt: string;
   updatedAt: string;
 };
@@ -84,4 +85,13 @@ export type SupplierOrderInput = {
   orderLink: string;
   country: string;
   notes: string;
+};
+
+export type SupplierOrderImage = {
+  id: string;
+  orderId: string;
+  imageUrl: string;
+  fileName: string;
+  storagePath: string;
+  createdAt: string;
 };
