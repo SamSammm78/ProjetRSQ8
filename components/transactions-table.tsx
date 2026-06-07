@@ -1,14 +1,17 @@
+import { Trash2 } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { Shop, Transaction } from "@/lib/types";
 
 export function TransactionsTable({
   transactions,
   shops,
-  compact = false
+  compact = false,
+  onDelete
 }: {
   transactions: Transaction[];
   shops: Shop[];
   compact?: boolean;
+  onDelete?: (transactionId: string) => void | Promise<void>;
 }) {
   const shopName = (shopId: string) => shops.find((shop) => shop.id === shopId)?.name ?? "Boutique";
 
@@ -33,6 +36,7 @@ export function TransactionsTable({
               <th className="px-4 py-3">CA net</th>
               <th className="px-4 py-3">Benefice</th>
               <th className="px-4 py-3">Marge</th>
+              {onDelete ? <th className="px-4 py-3 text-right">Action</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-sage">
@@ -47,6 +51,17 @@ export function TransactionsTable({
                   {formatCurrency(transaction.netProfit)}
                 </td>
                 <td className="px-4 py-4">{formatPercent(transaction.margin)}</td>
+                {onDelete ? (
+                  <td className="px-4 py-4 text-right">
+                    <button
+                      className="focus-ring inline-grid h-9 w-9 place-items-center rounded-lg border border-sage text-clay hover:bg-mist"
+                      onClick={() => onDelete(transaction.id)}
+                      title="Supprimer la transaction"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

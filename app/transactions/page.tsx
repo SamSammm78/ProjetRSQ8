@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Plus, Trash2 } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
@@ -33,9 +33,18 @@ export default function TransactionsPage() {
   const { addTransaction: saveTransaction, deleteTransaction: removeTransaction, error, isLoading, shops, transactions } =
     useClientData();
   const [form, setForm] = useState<TransactionInput>(() => createEmptyForm());
+  const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
+  const [endDate, setEndDate] = useState(() => getTodayIsoDate());
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (transaction) => transaction.date >= startDate && transaction.date <= endDate
+      ),
+    [endDate, startDate, transactions]
+  );
   const sortedTransactions = useMemo(
-    () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)),
-    [transactions]
+    () => [...filteredTransactions].sort((a, b) => b.date.localeCompare(a.date)),
+    [filteredTransactions]
   );
 
   function updateField(key: keyof TransactionInput, value: string) {
@@ -115,20 +124,30 @@ export default function TransactionsPage() {
       {isLoading ? <p className="text-sm text-ink/60">Chargement des transactions...</p> : null}
       {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
-      <TransactionsTable transactions={sortedTransactions} shops={shops} />
-
-      <section className="grid gap-2">
-        {sortedTransactions.map((transaction) => (
-          <button
-            key={transaction.id}
-            className="focus-ring inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-sage bg-white px-3 text-sm text-clay"
-            onClick={() => deleteTransaction(transaction.id)}
-          >
-            <Trash2 size={16} />
-            Supprimer {transaction.orderNumber || transaction.date}
-          </button>
-        ))}
+      <section className="grid gap-4 rounded-lg border border-sage bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold">Liste des transactions</h2>
+          <p className="text-sm text-ink/60">
+            {sortedTransactions.length} transaction{sortedTransactions.length > 1 ? "s" : ""} sur
+            la periode selectionnee.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InputField
+            label="Date de debut"
+            type="date"
+            value={startDate}
+            onChange={setStartDate}
+          />
+          <InputField label="Date de fin" type="date" value={endDate} onChange={setEndDate} />
+        </div>
       </section>
+
+      <TransactionsTable
+        transactions={sortedTransactions}
+        shops={shops}
+        onDelete={deleteTransaction}
+      />
     </PageShell>
   );
 }
