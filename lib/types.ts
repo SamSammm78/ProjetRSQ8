@@ -37,6 +37,7 @@ export type DailyStats = {
   netRevenue: number;
   netProfit: number;
   margin: number;
+  profitabilityRatioAverage: number;
   etsyFees: number;
   productCost: number;
   etsyAds: number;

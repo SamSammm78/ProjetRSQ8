@@ -8,6 +8,7 @@ import {
   Landmark,
   PackageCheck,
   Percent,
+  Scale,
   Receipt,
   TrendingUp
 } from "lucide-react";
@@ -28,7 +29,7 @@ import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 import { addDays, aggregateDailyStats } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
 
 function isBetween(date: string, startDate: string, endDate: string) {
   return date >= startDate && date <= endDate;
@@ -112,12 +113,22 @@ export default function DashboardPage() {
           icon={TrendingUp}
           tone={monthStats.netProfit >= 0 ? "positive" : "negative"}
         />
+        <KpiCard
+          label="Ratio rentabilite mois"
+          value={formatRatio(monthStats.profitabilityRatioAverage)}
+          icon={Scale}
+        />
         <KpiCard label="CA du jour" value={formatCurrency(todayStats.netRevenue)} icon={BadgeEuro} />
         <KpiCard
           label="Benefice du jour"
           value={formatCurrency(todayStats.netProfit)}
           icon={TrendingUp}
           tone={todayStats.netProfit >= 0 ? "positive" : "negative"}
+        />
+        <KpiCard
+          label="Ratio rentabilite jour"
+          value={formatRatio(todayStats.profitabilityRatioAverage)}
+          icon={Scale}
         />
         <KpiCard label="Commandes" value={String(todayStats.orders)} icon={PackageCheck} />
         <KpiCard label="Marge" value={formatPercent(todayStats.margin)} icon={Percent} />
@@ -161,6 +172,11 @@ export default function DashboardPage() {
           />
           <KpiCard label="Commandes periode" value={String(periodStats.orders)} icon={PackageCheck} />
           <KpiCard label="Marge periode" value={formatPercent(periodStats.margin)} icon={Percent} />
+          <KpiCard
+            label="Ratio rentabilite"
+            value={formatRatio(periodStats.profitabilityRatioAverage)}
+            icon={Scale}
+          />
           <KpiCard label="Frais Etsy" value={formatCurrency(periodStats.etsyFees)} icon={Receipt} />
           <KpiCard label="Couts produits" value={formatCurrency(periodStats.productCost)} icon={Receipt} />
           <KpiCard label="Pub Etsy" value={formatCurrency(periodStats.etsyAds)} icon={BadgeEuro} />

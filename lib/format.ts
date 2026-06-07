@@ -20,3 +20,9 @@ export function formatDate(value: string) {
     year: "numeric"
   }).format(new Date(`${value}T12:00:00`));
 }
+
+export function formatRatio(value: number) {
+  return `${new Intl.NumberFormat("fr-FR", {
+    maximumFractionDigits: 2
+  }).format(value)}x`;
+}

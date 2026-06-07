@@ -17,6 +17,16 @@ export function calculateTransactionMetrics(transaction: TransactionInput) {
   };
 }
 
+export function calculateProfitabilityRatio(transaction: {
+  netRevenue: number;
+  etsyFees: number;
+  etsyAds: number;
+  productCost: number;
+}) {
+  const revenueAfterEtsyCosts = transaction.netRevenue - transaction.etsyFees - transaction.etsyAds;
+  return transaction.productCost > 0 ? revenueAfterEtsyCosts / transaction.productCost : 0;
+}
+
 export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
   const totals = transactions.reduce(
     (stats, transaction) => ({
@@ -26,7 +36,11 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
       netProfit: stats.netProfit + transaction.netProfit,
       etsyFees: stats.etsyFees + transaction.etsyFees,
       productCost: stats.productCost + transaction.productCost,
-      etsyAds: stats.etsyAds + transaction.etsyAds
+      etsyAds: stats.etsyAds + transaction.etsyAds,
+      profitabilityRatioTotal:
+        stats.profitabilityRatioTotal + calculateProfitabilityRatio(transaction),
+      profitabilityRatioCount:
+        stats.profitabilityRatioCount + (transaction.productCost > 0 ? 1 : 0)
     }),
     {
       orders: 0,
@@ -35,13 +49,25 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
       netProfit: 0,
       etsyFees: 0,
       productCost: 0,
-      etsyAds: 0
+      etsyAds: 0,
+      profitabilityRatioTotal: 0,
+      profitabilityRatioCount: 0
     }
   );
 
   return {
-    ...totals,
-    margin: totals.netRevenue > 0 ? totals.netProfit / totals.netRevenue : 0
+    orders: totals.orders,
+    grossRevenue: totals.grossRevenue,
+    netRevenue: totals.netRevenue,
+    netProfit: totals.netProfit,
+    margin: totals.netRevenue > 0 ? totals.netProfit / totals.netRevenue : 0,
+    profitabilityRatioAverage:
+      totals.profitabilityRatioCount > 0
+        ? totals.profitabilityRatioTotal / totals.profitabilityRatioCount
+        : 0,
+    etsyFees: totals.etsyFees,
+    productCost: totals.productCost,
+    etsyAds: totals.etsyAds
   };
 }
 

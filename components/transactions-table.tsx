@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { calculateProfitabilityRatio } from "@/lib/calculations";
+import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
 import type { Shop, Transaction } from "@/lib/types";
 
 export function TransactionsTable({
@@ -36,6 +37,7 @@ export function TransactionsTable({
               <th className="px-4 py-3">CA net</th>
               <th className="px-4 py-3">Benefice</th>
               <th className="px-4 py-3">Marge</th>
+              <th className="px-4 py-3">Ratio renta.</th>
               {onDelete ? <th className="px-4 py-3 text-right">Action</th> : null}
             </tr>
           </thead>
@@ -51,6 +53,9 @@ export function TransactionsTable({
                   {formatCurrency(transaction.netProfit)}
                 </td>
                 <td className="px-4 py-4">{formatPercent(transaction.margin)}</td>
+                <td className="px-4 py-4">
+                  {formatRatio(calculateProfitabilityRatio(transaction))}
+                </td>
                 {onDelete ? (
                   <td className="px-4 py-4 text-right">
                     <button
