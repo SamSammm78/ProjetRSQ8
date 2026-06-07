@@ -179,7 +179,6 @@ export default function DashboardPage() {
           />
           <KpiCard label="Frais Etsy" value={formatCurrency(periodStats.etsyFees)} icon={Receipt} />
           <KpiCard label="Couts produits" value={formatCurrency(periodStats.productCost)} icon={Receipt} />
-          <KpiCard label="Pub Etsy" value={formatCurrency(periodStats.etsyAds)} icon={BadgeEuro} />
         </MetricGrid>
       </section>
 
