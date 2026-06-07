@@ -1,12 +1,30 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { BarChart3, ClipboardList, Settings, Store, WalletCards } from "lucide-react";
 import { Providers } from "@/components/providers";
+import { RegisterServiceWorker } from "@/components/pwa/register-service-worker";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "ProjetRSQ8",
-  description: "SaaS mobile-first pour suivre CA, benefice et marge multi-boutiques Etsy."
+  description: "SaaS mobile-first pour suivre CA, benefice et marge multi-boutiques Etsy.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ProjetRSQ8"
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+    ]
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000"
 };
 
 const navItems = [
@@ -21,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <body suppressHydrationWarning>
+        <RegisterServiceWorker />
         <Providers>
         <div className="min-h-screen pb-24 lg:pb-0">
           <header className="sticky top-0 z-20 border-b border-sage bg-mist/95 backdrop-blur">
