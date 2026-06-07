@@ -8,6 +8,7 @@ import {
   replaceSupplierOrderImage,
   uploadSupplierOrderImages
 } from "@/lib/supplier-orders";
+import { alertSupabaseError } from "@/lib/supabase-error";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { SupplierOrder, SupplierOrderImage } from "@/lib/types";
 
@@ -38,10 +39,9 @@ export function OrderDetailModal({
       const images = await uploadSupplierOrderImages(order.id, files, order.images.length);
       onOrderChange({ ...order, images: [...order.images, ...images] });
     } catch (caughtError) {
-      console.error("Erreur Supabase image commande", caughtError);
       const message = caughtError instanceof Error ? caughtError.message : "Erreur Supabase";
       setError(message);
-      window.alert(`Erreur Supabase : ${message}`);
+      alertSupabaseError(caughtError);
     }
   }
 
@@ -54,10 +54,9 @@ export function OrderDetailModal({
       setActiveIndex(0);
       onOrderChange({ ...order, images: nextImages });
     } catch (caughtError) {
-      console.error("Erreur Supabase suppression image", caughtError);
       const message = caughtError instanceof Error ? caughtError.message : "Erreur Supabase";
       setError(message);
-      window.alert(`Erreur Supabase : ${message}`);
+      alertSupabaseError(caughtError);
     }
   }
 
@@ -77,10 +76,9 @@ export function OrderDetailModal({
         )
       });
     } catch (caughtError) {
-      console.error("Erreur Supabase remplacement image", caughtError);
       const message = caughtError instanceof Error ? caughtError.message : "Erreur Supabase";
       setError(message);
-      window.alert(`Erreur Supabase : ${message}`);
+      alertSupabaseError(caughtError);
     }
   }
 

@@ -11,6 +11,7 @@ import {
   createSupplierOrder,
   getActiveSupplierOrders
 } from "@/lib/supplier-orders";
+import { alertSupabaseError } from "@/lib/supabase-error";
 import { getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { SupplierOrder, SupplierOrderInput } from "@/lib/types";
@@ -73,10 +74,9 @@ export default function CommandesPage() {
       setIsFormOpen(false);
       await loadOrders();
     } catch (caughtError) {
-      console.error("Erreur Supabase lors de l'ajout de commande", caughtError);
       const message = caughtError instanceof Error ? caughtError.message : "Erreur Supabase";
       setError(message);
-      window.alert(`Erreur Supabase : ${message}`);
+      alertSupabaseError(caughtError);
     } finally {
       setIsSubmitting(false);
     }
