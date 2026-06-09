@@ -1,11 +1,10 @@
 import type { DailyStats, Transaction, TransactionInput } from "@/lib/types";
 
 export function calculateTransactionMetrics(transaction: TransactionInput) {
-  const netRevenue = transaction.grossRevenue - transaction.refunds;
+  const netRevenue = transaction.grossRevenue - transaction.etsyFees - transaction.etsyAds;
   const netProfit =
     netRevenue -
-    transaction.etsyFees -
-    transaction.etsyAds -
+    transaction.refunds -
     transaction.productCost -
     transaction.shippingPaid -
     transaction.otherFees;
@@ -19,12 +18,9 @@ export function calculateTransactionMetrics(transaction: TransactionInput) {
 
 export function calculateProfitabilityRatio(transaction: {
   netRevenue: number;
-  etsyFees: number;
-  etsyAds: number;
   productCost: number;
 }) {
-  const revenueAfterEtsyCosts = transaction.netRevenue - transaction.etsyFees - transaction.etsyAds;
-  return transaction.productCost > 0 ? revenueAfterEtsyCosts / transaction.productCost : 0;
+  return transaction.productCost > 0 ? transaction.netRevenue / transaction.productCost : 0;
 }
 
 export function aggregateDailyStats(transactions: Transaction[]): DailyStats {

@@ -22,16 +22,16 @@ create table if not exists public.transactions (
   product_cost numeric(12, 2) not null default 0,
   shipping_paid numeric(12, 2) not null default 0,
   other_fees numeric(12, 2) not null default 0,
-  net_revenue numeric(12, 2) generated always as (gross_revenue - refunds) stored,
+  net_revenue numeric(12, 2) generated always as (gross_revenue - etsy_fees - etsy_ads) stored,
   net_profit numeric(12, 2) generated always as (
     gross_revenue - refunds - etsy_fees - etsy_ads - product_cost - shipping_paid - other_fees
   ) stored,
   margin numeric(8, 4) generated always as (
     case
-      when (gross_revenue - refunds) > 0
+      when (gross_revenue - etsy_fees - etsy_ads) > 0
       then (
         gross_revenue - refunds - etsy_fees - etsy_ads - product_cost - shipping_paid - other_fees
-      ) / (gross_revenue - refunds)
+      ) / (gross_revenue - etsy_fees - etsy_ads)
       else 0
     end
   ) stored,
