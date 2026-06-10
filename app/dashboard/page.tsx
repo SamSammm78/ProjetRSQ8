@@ -10,7 +10,8 @@ import {
   Percent,
   Scale,
   Receipt,
-  TrendingUp
+  TrendingUp,
+  X
 } from "lucide-react";
 import {
   Area,
@@ -30,6 +31,7 @@ import { useClientData } from "@/components/client-data";
 import { addDays, aggregateDailyStats } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
+import type { Shop, Transaction } from "@/lib/types";
 
 function isBetween(date: string, startDate: string, endDate: string) {
   return date >= startDate && date <= endDate;
@@ -53,10 +55,15 @@ export default function DashboardPage() {
   const [monthStart] = useState(() => getMonthStartIsoDate());
   const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
   const [endDate, setEndDate] = useState(() => getTodayIsoDate());
+  const [isDailyRevenueOpen, setIsDailyRevenueOpen] = useState(false);
   const userTransactions = transactions;
 
   const todayStats = aggregateDailyStats(
     userTransactions.filter((transaction) => transaction.date === today)
+  );
+  const todayTransactions = useMemo(
+    () => userTransactions.filter((transaction) => transaction.date === today),
+    [today, userTransactions]
   );
   const monthStats = aggregateDailyStats(
     userTransactions.filter((transaction) => isBetween(transaction.date, monthStart, today))
@@ -118,7 +125,13 @@ export default function DashboardPage() {
           value={formatRatio(monthStats.profitabilityRatioAverage)}
           icon={Scale}
         />
-        <KpiCard label="CA du jour" value={formatCurrency(todayStats.grossRevenue)} icon={BadgeEuro} />
+        <KpiCard
+          label="CA du jour"
+          value={formatCurrency(todayStats.grossRevenue)}
+          icon={BadgeEuro}
+          onClick={() => setIsDailyRevenueOpen(true)}
+          ariaLabel="Ouvrir le detail du CA du jour"
+        />
         <KpiCard
           label="Benefice du jour"
           value={formatCurrency(todayStats.netProfit)}
@@ -247,6 +260,163 @@ export default function DashboardPage() {
           </p>
         </aside>
       </section>
+
+      {isDailyRevenueOpen ? (
+        <DailyRevenueDetail
+          date={today}
+          shops={shops}
+          stats={todayStats}
+          transactions={todayTransactions}
+          onClose={() => setIsDailyRevenueOpen(false)}
+        />
+      ) : null}
     </PageShell>
+  );
+}
+
+function DailyRevenueDetail({
+  date,
+  shops,
+  stats,
+  transactions,
+  onClose
+}: {
+  date: string;
+  shops: Shop[];
+  stats: ReturnType<typeof aggregateDailyStats>;
+  transactions: Transaction[];
+  onClose: () => void;
+}) {
+  const shopNameById = useMemo(
+    () => new Map(shops.map((shop) => [shop.id, shop.name])),
+    [shops]
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-ink/55 p-0 sm:items-center sm:justify-center sm:p-4">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-soft sm:max-w-5xl sm:rounded-lg">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sage bg-white p-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-normal text-ink/55">{date}</p>
+            <h2 className="text-xl font-semibold">Detail du CA du jour</h2>
+          </div>
+          <button
+            type="button"
+            className="focus-ring grid h-10 w-10 place-items-center rounded-lg border border-sage text-ink/70"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-4">
+          <MetricGrid>
+            <KpiCard label="Commandes du jour" value={String(stats.orders)} icon={PackageCheck} />
+            <KpiCard label="Total CA brut" value={formatCurrency(stats.grossRevenue)} icon={Receipt} />
+            <KpiCard label="Total CA net" value={formatCurrency(stats.netRevenue)} icon={BadgeEuro} />
+            <KpiCard
+              label="Total benefice"
+              value={formatCurrency(stats.netProfit)}
+              icon={TrendingUp}
+              tone={stats.netProfit >= 0 ? "positive" : "negative"}
+            />
+          </MetricGrid>
+
+          {transactions.length === 0 ? (
+            <div className="rounded-lg border border-sage bg-mist p-4 text-sm text-ink/65">
+              Aucune transaction trouvee pour cette date.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 md:hidden">
+                {transactions.map((transaction) => (
+                  <DailyRevenueCard
+                    key={transaction.id}
+                    transaction={transaction}
+                    shopName={shopNameById.get(transaction.shopId) ?? "-"}
+                  />
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-lg border border-sage md:block">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-mist text-xs uppercase tracking-normal text-ink/55">
+                    <tr>
+                      <th className="px-4 py-3">Commande</th>
+                      <th className="px-4 py-3">Boutique</th>
+                      <th className="px-4 py-3">CA brut</th>
+                      <th className="px-4 py-3">CA net</th>
+                      <th className="px-4 py-3">Benefice</th>
+                      <th className="px-4 py-3">Frais Etsy</th>
+                      <th className="px-4 py-3">Cout produit</th>
+                      <th className="px-4 py-3">Marge</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sage">
+                    {transactions.map((transaction) => (
+                      <tr key={transaction.id}>
+                        <td className="px-4 py-4 font-medium">
+                          {transaction.orderNumber || "-"}
+                        </td>
+                        <td className="px-4 py-4">
+                          {shopNameById.get(transaction.shopId) ?? "-"}
+                        </td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.grossRevenue)}</td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.netRevenue)}</td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.netProfit)}</td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.etsyFees)}</td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.productCost)}</td>
+                        <td className="px-4 py-4">{formatPercent(transaction.margin)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <button
+            type="button"
+            className="focus-ring h-11 rounded-lg bg-moss px-4 text-sm font-semibold text-white sm:w-fit"
+            onClick={onClose}
+          >
+            Fermer
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DailyRevenueCard({
+  transaction,
+  shopName
+}: {
+  transaction: Transaction;
+  shopName: string;
+}) {
+  return (
+    <article className="rounded-lg border border-sage bg-white p-4 shadow-soft">
+      <h3 className="font-semibold">Commande #{transaction.orderNumber || "-"}</h3>
+      <div className="mt-3 grid gap-2 text-sm">
+        <DetailRow label="Boutique" value={shopName} />
+        <DetailRow label="CA brut" value={formatCurrency(transaction.grossRevenue)} />
+        <DetailRow label="CA net" value={formatCurrency(transaction.netRevenue)} />
+        <DetailRow label="Benefice" value={formatCurrency(transaction.netProfit)} />
+        <DetailRow label="Frais Etsy" value={formatCurrency(transaction.etsyFees)} />
+        <DetailRow label="Cout produit" value={formatCurrency(transaction.productCost)} />
+        <DetailRow label="Marge" value={formatPercent(transaction.margin)} />
+      </div>
+    </article>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-ink/60">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
   );
 }
