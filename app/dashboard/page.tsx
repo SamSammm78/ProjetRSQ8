@@ -106,7 +106,7 @@ export default function DashboardPage() {
       }
     >
       <MetricGrid>
-        <KpiCard label="CA du mois" value={formatCurrency(monthStats.netRevenue)} icon={Landmark} />
+        <KpiCard label="CA du mois" value={formatCurrency(monthStats.grossRevenue)} icon={Landmark} />
         <KpiCard
           label="Benefice du mois"
           value={formatCurrency(monthStats.netProfit)}
@@ -118,7 +118,7 @@ export default function DashboardPage() {
           value={formatRatio(monthStats.profitabilityRatioAverage)}
           icon={Scale}
         />
-        <KpiCard label="CA du jour" value={formatCurrency(todayStats.netRevenue)} icon={BadgeEuro} />
+        <KpiCard label="CA du jour" value={formatCurrency(todayStats.grossRevenue)} icon={BadgeEuro} />
         <KpiCard
           label="Benefice du jour"
           value={formatCurrency(todayStats.netProfit)}
