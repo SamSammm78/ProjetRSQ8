@@ -29,10 +29,10 @@ L'app utilise Supabase comme base de donnees. Les tables SQL sont preparees dans
 
 1. Cree un projet Supabase.
 2. Copie `.env.example` vers `.env.local`.
-3. Copie `.env.example` vers `.env.local`.
-4. Renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-5. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
-6. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
+3. Renseigne `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` et
+   `WIDGET_API_KEY` avec une cle secrete longue.
+4. Execute `supabase/schema.sql` dans l'editeur SQL Supabase.
+5. Execute `supabase/seed.sql` si tu veux charger les donnees initiales.
 
 Le schema contient les tables principales pour les boutiques et transactions.
 
@@ -43,6 +43,22 @@ autorise le dashboard a lire/ecrire dans `shops` et `transactions`.
 Pour le module Commandes, execute aussi `supabase/supplier-orders.sql` si la table
 `supplier_orders` n'existe pas encore ou si les colonnes `status` / `completed_at` manquent.
 Ce script cree aussi le bucket Storage `supplier-orders` et la table `supplier_order_images`.
+
+## API Widget
+
+Les routes Widget lisent les vraies transactions Supabase et sont pensees pour Scriptable.
+Ajoute toujours la cle definie dans `WIDGET_API_KEY` :
+
+```txt
+https://ton-domaine.com/api/widget/monthly?key=TA_CLE_WIDGET
+```
+
+- `/api/widget/monthly` : statistiques du mois en cours.
+- `/api/widget/today` : statistiques du jour en cours.
+- `/api/widget/dashboard` : resume du jour et du mois pour un widget compact.
+- `/api/widget/shops` : CA brut et benefice par boutique pour le mois en cours.
+
+Sans cle valide, les routes renvoient `401` avec `{ "error": "Unauthorized" }`.
 
 ## Deploiement Vercel
 
