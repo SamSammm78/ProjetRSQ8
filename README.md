@@ -47,10 +47,9 @@ Ce script cree aussi le bucket Storage `supplier-orders` et la table `supplier_o
 ## API Widget
 
 Les routes Widget lisent les vraies transactions Supabase et sont pensees pour Scriptable.
-Ajoute toujours la cle definie dans `WIDGET_API_KEY` :
 
 ```txt
-https://ton-domaine.com/api/widget/monthly?key=TA_CLE_WIDGET
+https://ton-domaine.com/api/widget/monthly
 ```
 
 - `/api/widget/monthly` : statistiques du mois en cours.
@@ -58,7 +57,7 @@ https://ton-domaine.com/api/widget/monthly?key=TA_CLE_WIDGET
 - `/api/widget/dashboard` : resume du jour et du mois pour un widget compact.
 - `/api/widget/shops` : CA brut et benefice par boutique pour le mois en cours.
 
-Sans cle valide, les routes renvoient `401` avec `{ "error": "Unauthorized" }`.
+Les routes sont publiques : ne partage pas leurs URLs si tu ne veux pas rendre tes statistiques accessibles.
 
 ## Deploiement Vercel
 

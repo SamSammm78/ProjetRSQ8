@@ -1,19 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import {
-  getCurrentMonthWidgetStats,
-  getTodayWidgetStats,
-  isWidgetRequestAuthorized,
-  unauthorizedWidgetResponse
-} from "@/lib/widget-api";
+import { NextResponse } from "next/server";
+import { getCurrentMonthWidgetStats, getTodayWidgetStats } from "@/lib/widget-api";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(request: NextRequest) {
-  if (!isWidgetRequestAuthorized(request)) {
-    return unauthorizedWidgetResponse();
-  }
-
+export async function GET() {
   try {
     const [today, month] = await Promise.all([getTodayWidgetStats(), getCurrentMonthWidgetStats()]);
 

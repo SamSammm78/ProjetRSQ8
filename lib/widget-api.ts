@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { createClient } from "@/utils/supabase/server";
 
@@ -47,17 +46,6 @@ export function getCurrentMonthLabel() {
   }).format(new Date(`${getMonthStartIsoDate()}T12:00:00`));
 
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
-}
-
-export function unauthorizedWidgetResponse() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-
-export function isWidgetRequestAuthorized(request: NextRequest) {
-  const key = request.nextUrl.searchParams.get("key");
-  const expectedKey = process.env.WIDGET_API_KEY;
-
-  return Boolean(expectedKey && key && key === expectedKey);
 }
 
 export async function getWidgetStats(startDate: string, endDate: string): Promise<WidgetStats> {
