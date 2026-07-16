@@ -3,7 +3,6 @@
 import { seedShops, seedTransactions } from "@/data/seed";
 import { calculateTransactionMetrics } from "@/lib/calculations";
 import type {
-  FeesStatus,
   RefundType,
   Shop,
   Transaction,
@@ -17,9 +16,6 @@ type ShopRow = {
   id: string;
   name: string;
   active: boolean;
-  fee_calculation_mode?: string | null;
-  estimated_fee_percentage?: number | string | null;
-  estimated_fixed_fee?: number | string | null;
   created_at: string;
   updated_at: string;
 };
@@ -33,7 +29,7 @@ type TransactionRow = {
   status: string;
   gross_revenue: number;
   refunds: number;
-  etsy_fees: number;
+  etsy_fees?: number | string | null;
   etsy_ads: number;
   product_cost: number;
   shipping_paid: number;
@@ -66,10 +62,6 @@ function normalizeStatus(status: string | null | undefined): TransactionStatus {
   return status === "refunded" ? "refunded" : "paid";
 }
 
-function normalizeFeesStatus(status: string | null | undefined): FeesStatus {
-  return status === "confirmed" ? "confirmed" : "estimated";
-}
-
 function normalizeRefundType(type: string | null | undefined): RefundType | null {
   return type === "full_product_recovered" || type === "full_product_not_recovered" ? type : null;
 }
@@ -79,15 +71,16 @@ function mapShop(row: ShopRow): Shop {
     id: row.id,
     name: row.name,
     active: row.active,
-    feeCalculationMode: row.fee_calculation_mode === "manual" ? "manual" : "automatic",
-    estimatedFeePercentage: asNumber(row.estimated_fee_percentage, 11),
-    estimatedFixedFee: asNumber(row.estimated_fixed_fee, 0.3),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
 }
 
 function mapTransaction(row: TransactionRow): Transaction {
+  const etsyFees = asNumber(
+    row.etsy_fees ?? row.actual_etsy_fees ?? row.estimated_etsy_fees ?? 0
+  );
+
   return {
     id: row.id,
     shopId: row.shop_id,
@@ -97,7 +90,7 @@ function mapTransaction(row: TransactionRow): Transaction {
     status: normalizeStatus(row.status),
     grossRevenue: asNumber(row.gross_revenue),
     refunds: asNumber(row.refunds),
-    etsyFees: asNumber(row.etsy_fees),
+    etsyFees,
     etsyAds: asNumber(row.etsy_ads),
     productCost: asNumber(row.product_cost),
     shippingPaid: asNumber(row.shipping_paid),
@@ -106,12 +99,6 @@ function mapTransaction(row: TransactionRow): Transaction {
     netProfit: asNumber(row.net_profit),
     margin: asNumber(row.margin),
     notes: row.notes,
-    estimatedEtsyFees: asNumber(row.estimated_etsy_fees, asNumber(row.etsy_fees)),
-    actualEtsyFees:
-      row.actual_etsy_fees === null || row.actual_etsy_fees === undefined
-        ? null
-        : asNumber(row.actual_etsy_fees),
-    feesStatus: normalizeFeesStatus(row.fees_status),
     refundType: normalizeRefundType(row.refund_type),
     refundAmount: asNumber(row.refund_amount, asNumber(row.refunds)),
     refundedAt: row.refunded_at ?? null,
@@ -137,9 +124,6 @@ function toTransactionPayload(transaction: TransactionInput | TransactionUpdateI
     shipping_paid: transaction.shippingPaid,
     other_fees: transaction.otherFees,
     notes: transaction.notes,
-    estimated_etsy_fees: transaction.estimatedEtsyFees,
-    actual_etsy_fees: transaction.actualEtsyFees,
-    fees_status: transaction.feesStatus,
     refund_type: transaction.refundType,
     refund_amount: transaction.refundAmount,
     refunded_at: transaction.refundedAt,
@@ -192,10 +176,7 @@ export async function updateShopInSupabase(shop: Shop) {
     .from("shops")
     .update({
       name: shop.name,
-      active: shop.active,
-      fee_calculation_mode: shop.feeCalculationMode,
-      estimated_fee_percentage: shop.estimatedFeePercentage,
-      estimated_fixed_fee: shop.estimatedFixedFee
+      active: shop.active
     })
     .eq("id", shop.id)
     .select("*")
@@ -366,9 +347,6 @@ export async function resetSupabaseData() {
         shippingPaid: transaction.shippingPaid,
         otherFees: transaction.otherFees,
         notes: transaction.notes,
-        estimatedEtsyFees: transaction.etsyFees,
-        actualEtsyFees: null,
-        feesStatus: "estimated",
         refundType: null,
         refundAmount: transaction.refunds,
         refundedAt: null,

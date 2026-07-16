@@ -1,33 +1,10 @@
 import type { DailyStats, Transaction, TransactionInput } from "@/lib/types";
 
-export function calculateEstimatedEtsyFees(
-  grossRevenue: number,
-  estimatedFeePercentage: number,
-  estimatedFixedFee: number
-) {
-  return grossRevenue > 0 ? grossRevenue * (estimatedFeePercentage / 100) + estimatedFixedFee : 0;
-}
-
-export function getEffectiveEtsyFees(transaction: {
-  estimatedEtsyFees: number;
-  actualEtsyFees: number | null;
-  feesStatus: string;
-  etsyFees: number;
-}) {
-  if (transaction.feesStatus === "confirmed") {
-    return transaction.actualEtsyFees ?? transaction.etsyFees ?? 0;
-  }
-
-  return transaction.estimatedEtsyFees || transaction.etsyFees || 0;
-}
-
 export function calculateTransactionProfit(transaction: TransactionInput) {
-  const etsyFees = getEffectiveEtsyFees(transaction);
-
   return (
     transaction.grossRevenue -
     transaction.refunds -
-    etsyFees -
+    transaction.etsyFees -
     transaction.etsyAds -
     transaction.productCost -
     transaction.shippingPaid -
@@ -40,8 +17,7 @@ export function calculateTransactionMargin(transaction: { grossRevenue: number; 
 }
 
 export function calculateRefundedTransactionProfit(transaction: TransactionInput) {
-  const etsyFees = getEffectiveEtsyFees(transaction);
-  const remainingEtsyFees = Math.max(0, etsyFees - transaction.etsyFeesRefunded);
+  const remainingEtsyFees = Math.max(0, transaction.etsyFees - transaction.etsyFeesRefunded);
   const effectiveProductCost = transaction.productCostRecovered ? 0 : transaction.productCost;
 
   return {
@@ -59,8 +35,11 @@ export function calculateRefundedTransactionProfit(transaction: TransactionInput
 }
 
 export function calculateTransactionMetrics(transaction: TransactionInput) {
-  const etsyFees = getEffectiveEtsyFees(transaction);
-  const netRevenue = transaction.grossRevenue - transaction.refundAmount - etsyFees - transaction.etsyAds;
+  const netRevenue =
+    transaction.grossRevenue -
+    transaction.refundAmount -
+    transaction.etsyFees -
+    transaction.etsyAds;
   const netProfit =
     transaction.status === "refunded"
       ? calculateRefundedTransactionProfit(transaction).finalProfit

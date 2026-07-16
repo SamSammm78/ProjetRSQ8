@@ -6,7 +6,7 @@ import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 
 export default function ShopsPage() {
-  const { addShop, deleteShop: removeShop, error, isLoading, shops, toggleShop, transactions, updateShop } =
+  const { addShop, deleteShop: removeShop, error, isLoading, shops, toggleShop, transactions } =
     useClientData();
   const [name, setName] = useState("");
 
@@ -28,23 +28,6 @@ export default function ShopsPage() {
     if (confirmed) {
       await removeShop(shopId);
     }
-  }
-
-  async function updateFeeSetting(
-    shopId: string,
-    key: "feeCalculationMode" | "estimatedFeePercentage" | "estimatedFixedFee",
-    value: string
-  ) {
-    const shop = shops.find((currentShop) => currentShop.id === shopId);
-
-    if (!shop) {
-      return;
-    }
-
-    await updateShop({
-      ...shop,
-      [key]: key === "feeCalculationMode" ? value : Number(value) || 0
-    });
   }
 
   return (
@@ -96,45 +79,6 @@ export default function ShopsPage() {
                     <Trash2 size={17} />
                   </button>
                 </div>
-              </div>
-              <div className="mt-4 grid gap-3 border-t border-sage pt-4 sm:grid-cols-3">
-                <label className="grid gap-2 text-sm font-medium text-ink/70">
-                  Mode de calcul
-                  <select
-                    className="focus-ring h-11 rounded-lg border border-sage bg-mist px-3 text-ink"
-                    value={shop.feeCalculationMode}
-                    onChange={(event) =>
-                      updateFeeSetting(shop.id, "feeCalculationMode", event.target.value)
-                    }
-                  >
-                    <option value="automatic">Estimation automatique</option>
-                    <option value="manual">Saisie manuelle</option>
-                  </select>
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-ink/70">
-                  Pourcentage estime
-                  <input
-                    className="focus-ring h-11 rounded-lg border border-sage bg-mist px-3 text-ink"
-                    type="number"
-                    step="0.01"
-                    value={shop.estimatedFeePercentage}
-                    onChange={(event) =>
-                      updateFeeSetting(shop.id, "estimatedFeePercentage", event.target.value)
-                    }
-                  />
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-ink/70">
-                  Frais fixes estimes
-                  <input
-                    className="focus-ring h-11 rounded-lg border border-sage bg-mist px-3 text-ink"
-                    type="number"
-                    step="0.01"
-                    value={shop.estimatedFixedFee}
-                    onChange={(event) =>
-                      updateFeeSetting(shop.id, "estimatedFixedFee", event.target.value)
-                    }
-                  />
-                </label>
               </div>
             </article>
           );

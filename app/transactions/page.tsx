@@ -1,16 +1,12 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Download, Plus, RotateCcw, Save, X } from "lucide-react";
+import { ChevronDown, Download, RotateCcw, Save, X } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
 import { exportTransactions, normalizeTransactionInput } from "@/lib/api";
-import {
-  calculateEstimatedEtsyFees,
-  calculateRefundedTransactionProfit,
-  calculateTransactionMetrics
-} from "@/lib/calculations";
+import { calculateRefundedTransactionProfit, calculateTransactionMetrics } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { alertSupabaseError } from "@/lib/supabase-error";
@@ -33,9 +29,6 @@ function createEmptyForm(shopId = "", date = getTodayIsoDate()): TransactionInpu
     shippingPaid: 0,
     otherFees: 0,
     notes: "",
-    estimatedEtsyFees: 0,
-    actualEtsyFees: null,
-    feesStatus: "estimated",
     refundType: null,
     refundAmount: 0,
     refundedAt: null,
@@ -46,18 +39,6 @@ function createEmptyForm(shopId = "", date = getTodayIsoDate()): TransactionInpu
 
 function parseAmount(value: string) {
   return Number(value.replace(",", ".")) || 0;
-}
-
-function getShopFeeEstimate(shop: Shop | undefined, grossRevenue: number) {
-  if (!shop || shop.feeCalculationMode === "manual") {
-    return 0;
-  }
-
-  return calculateEstimatedEtsyFees(
-    grossRevenue,
-    shop.estimatedFeePercentage,
-    shop.estimatedFixedFee
-  );
 }
 
 export default function TransactionsPage() {
@@ -80,8 +61,8 @@ export default function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [refundTarget, setRefundTarget] = useState<Transaction | null>(null);
   const orderInputRef = useRef<HTMLInputElement>(null);
+  const transactionsListRef = useRef<HTMLElement>(null);
 
-  const selectedShop = shops.find((shop) => shop.id === form.shopId);
   const preview = calculateTransactionMetrics(form);
 
   useEffect(() => {
@@ -95,22 +76,6 @@ export default function TransactionsPage() {
 
     setForm((current) => ({ ...current, shopId: fallbackShop.id }));
   }, [form.shopId, shops]);
-
-  useEffect(() => {
-    const estimate = getShopFeeEstimate(selectedShop, form.grossRevenue);
-
-    if (selectedShop?.feeCalculationMode !== "automatic") {
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      estimatedEtsyFees: estimate,
-      etsyFees: estimate,
-      actualEtsyFees: null,
-      feesStatus: "estimated"
-    }));
-  }, [form.grossRevenue, selectedShop]);
 
   const filteredTransactions = useMemo(
     () =>
@@ -133,7 +98,6 @@ export default function TransactionsPage() {
         key === "orderNumber" ||
         key === "status" ||
         key === "notes" ||
-        key === "feesStatus" ||
         key === "refundType" ||
         key === "refundedAt"
           ? value
@@ -142,11 +106,6 @@ export default function TransactionsPage() {
 
       if (key === "date") {
         nextForm.month = `${value.slice(0, 7)}-01`;
-      }
-
-      if (key === "etsyFees") {
-        nextForm.actualEtsyFees = parseAmount(value);
-        nextForm.feesStatus = "confirmed";
       }
 
       return nextForm;
@@ -160,6 +119,14 @@ export default function TransactionsPage() {
 
     if (input.grossRevenue <= 0) {
       return "Le montant recu doit etre superieur a zero.";
+    }
+
+    if (input.etsyFees < 0) {
+      return "Les frais Etsy ne peuvent pas etre negatifs.";
+    }
+
+    if (input.productCost < 0) {
+      return "Le cout du produit ne peut pas etre negatif.";
     }
 
     const orderNumber = input.orderNumber.trim();
@@ -177,7 +144,7 @@ export default function TransactionsPage() {
     return duplicate ? "Cette commande existe deja pour cette boutique." : "";
   }
 
-  async function saveSale(keepFocus = false) {
+  async function saveSale() {
     const normalized = normalizeTransactionInput({
       ...form,
       orderNumber: form.orderNumber.trim(),
@@ -196,10 +163,7 @@ export default function TransactionsPage() {
       window.localStorage.setItem(LAST_SHOP_KEY, normalized.shopId);
       setForm(createEmptyForm(normalized.shopId, normalized.date));
       setIsAdvancedOpen(false);
-
-      if (keepFocus) {
-        window.setTimeout(() => orderInputRef.current?.focus(), 0);
-      }
+      window.setTimeout(() => transactionsListRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
     } catch (caughtError) {
       alertSupabaseError(caughtError);
     } finally {
@@ -282,37 +246,45 @@ export default function TransactionsPage() {
             inputMode="decimal"
             suffix="EUR"
           />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <InputField
+              label="Frais Etsy"
+              value={form.etsyFees}
+              onChange={(value) => updateField("etsyFees", value)}
+              inputMode="decimal"
+              suffix="EUR"
+            />
+            <InputField
+              label="Cout du produit"
+              value={form.productCost || ""}
+              onChange={(value) => updateField("productCost", value)}
+              inputMode="decimal"
+              suffix="EUR"
+            />
+          </div>
         </div>
 
         <div className="mt-4 grid gap-2 rounded-lg bg-mist p-4 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-ink/65">Benefice estime</span>
+            <span className="text-ink/65">Benefice</span>
             <strong className={preview.netProfit >= 0 ? "text-moss" : "text-clay"}>
               {formatCurrency(preview.netProfit)}
             </strong>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-ink/65">Marge estimee</span>
+            <span className="text-ink/65">Marge</span>
             <strong>{formatPercent(preview.margin)}</strong>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-4">
           <button
             className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white disabled:opacity-60"
-            onClick={() => saveSale(false)}
+            onClick={saveSale}
             disabled={isSaving}
           >
             <Save size={18} />
             {isSaving ? "Enregistrement..." : "Enregistrer"}
-          </button>
-          <button
-            className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sage bg-white px-5 font-semibold disabled:opacity-60"
-            onClick={() => saveSale(true)}
-            disabled={isSaving}
-          >
-            <Plus size={18} />
-            Enregistrer + nouvelle vente
           </button>
         </div>
 
@@ -328,7 +300,7 @@ export default function TransactionsPage() {
       {isLoading ? <p className="text-sm text-ink/60">Chargement des transactions...</p> : null}
       {error ? <p className="text-sm font-medium text-clay">{error}</p> : null}
 
-      <section className="grid gap-4 rounded-lg border border-sage bg-white p-4 shadow-soft">
+      <section ref={transactionsListRef} className="grid gap-4 rounded-lg border border-sage bg-white p-4 shadow-soft">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-semibold">Liste des transactions</h2>
           <p className="text-sm text-ink/60">
@@ -419,9 +391,7 @@ function AdvancedFields({
   return (
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <InputField label="Date de la vente" type="date" value={form.date} onChange={(value) => onChange("date", value)} />
-      <InputField label="Cout du produit" value={form.productCost || ""} onChange={(value) => onChange("productCost", value)} inputMode="decimal" />
       <InputField label="Livraison fournisseur" value={form.shippingPaid || ""} onChange={(value) => onChange("shippingPaid", value)} inputMode="decimal" />
-      <InputField label="Frais Etsy" value={form.etsyFees || ""} onChange={(value) => onChange("etsyFees", value)} inputMode="decimal" />
       <InputField label="Offsite Ads" value={form.etsyAds || ""} onChange={(value) => onChange("etsyAds", value)} inputMode="decimal" />
       <InputField label="Autres frais" value={form.otherFees || ""} onChange={(value) => onChange("otherFees", value)} inputMode="decimal" />
       <label className="grid gap-2 text-sm font-medium text-ink/70 sm:col-span-2 xl:col-span-3">
@@ -493,9 +463,8 @@ function EditTransactionModal({
   function updateDraft(key: keyof TransactionInput, value: string) {
     setDraft((current) => ({
       ...current,
-      [key]: key === "shopId" || key === "date" || key === "month" || key === "orderNumber" || key === "status" || key === "notes" || key === "feesStatus" || key === "refundType" || key === "refundedAt" ? value : parseAmount(value),
-      ...(key === "date" ? { month: `${value.slice(0, 7)}-01` } : {}),
-      ...(key === "etsyFees" ? { actualEtsyFees: parseAmount(value), feesStatus: "confirmed" as const } : {})
+      [key]: key === "shopId" || key === "date" || key === "month" || key === "orderNumber" || key === "status" || key === "notes" || key === "refundType" || key === "refundedAt" ? value : parseAmount(value),
+      ...(key === "date" ? { month: `${value.slice(0, 7)}-01` } : {})
     }));
   }
 
@@ -511,6 +480,10 @@ function EditTransactionModal({
         </SelectField>
         <InputField label="Commande Etsy" value={draft.orderNumber} onChange={(value) => updateDraft("orderNumber", value)} />
         <InputField label="Montant recu" value={draft.grossRevenue || ""} onChange={(value) => updateDraft("grossRevenue", value)} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InputField label="Frais Etsy" value={draft.etsyFees} onChange={(value) => updateDraft("etsyFees", value)} inputMode="decimal" />
+          <InputField label="Cout du produit" value={draft.productCost || ""} onChange={(value) => updateDraft("productCost", value)} inputMode="decimal" />
+        </div>
         <AdvancedFields form={draft} onChange={updateDraft} />
         <div className="rounded-lg bg-mist p-3 text-sm">
           Benefice prevu : <strong>{formatCurrency(preview.netProfit)}</strong>

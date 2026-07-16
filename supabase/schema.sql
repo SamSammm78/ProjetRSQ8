@@ -4,9 +4,6 @@ create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   active boolean not null default true,
-  fee_calculation_mode text not null default 'automatic',
-  estimated_fee_percentage numeric(6, 2) not null default 11,
-  estimated_fixed_fee numeric(12, 2) not null default 0.30,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -25,9 +22,6 @@ create table if not exists public.transactions (
   product_cost numeric(12, 2) not null default 0,
   shipping_paid numeric(12, 2) not null default 0,
   other_fees numeric(12, 2) not null default 0,
-  estimated_etsy_fees numeric(12, 2) not null default 0,
-  actual_etsy_fees numeric(12, 2),
-  fees_status text not null default 'estimated',
   refund_type text,
   refund_amount numeric(12, 2) not null default 0,
   refunded_at timestamp with time zone,
@@ -36,10 +30,7 @@ create table if not exists public.transactions (
   net_revenue numeric(12, 2) generated always as (
     gross_revenue
     - refund_amount
-    - case
-        when fees_status = 'confirmed' then coalesce(actual_etsy_fees, etsy_fees)
-        else coalesce(nullif(estimated_etsy_fees, 0), etsy_fees)
-      end
+    - etsy_fees
     - etsy_ads
   ) stored,
   net_profit numeric(12, 2) generated always as (
@@ -47,10 +38,7 @@ create table if not exists public.transactions (
     - refund_amount
     - greatest(
         0,
-        case
-          when fees_status = 'confirmed' then coalesce(actual_etsy_fees, etsy_fees)
-          else coalesce(nullif(estimated_etsy_fees, 0), etsy_fees)
-        end - etsy_fees_refunded
+      etsy_fees - etsy_fees_refunded
       )
     - etsy_ads
     - case when product_cost_recovered then 0 else product_cost end
@@ -65,10 +53,7 @@ create table if not exists public.transactions (
         - refund_amount
         - greatest(
             0,
-            case
-              when fees_status = 'confirmed' then coalesce(actual_etsy_fees, etsy_fees)
-              else coalesce(nullif(estimated_etsy_fees, 0), etsy_fees)
-            end - etsy_fees_refunded
+          etsy_fees - etsy_fees_refunded
           )
         - etsy_ads
         - case when product_cost_recovered then 0 else product_cost end
