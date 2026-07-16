@@ -123,12 +123,7 @@ function toTransactionPayload(transaction: TransactionInput | TransactionUpdateI
     product_cost: transaction.productCost,
     shipping_paid: transaction.shippingPaid,
     other_fees: transaction.otherFees,
-    notes: transaction.notes,
-    refund_type: transaction.refundType,
-    refund_amount: transaction.refundAmount,
-    refunded_at: transaction.refundedAt,
-    product_cost_recovered: transaction.productCostRecovered,
-    etsy_fees_refunded: transaction.etsyFeesRefunded
+    notes: transaction.notes
   };
 }
 
