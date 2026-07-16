@@ -53,6 +53,17 @@ export function normalizeTransactionInput(input: TransactionInput): TransactionI
     etsyAds: Number(input.etsyAds) || 0,
     productCost: Number(input.productCost) || 0,
     shippingPaid: Number(input.shippingPaid) || 0,
-    otherFees: Number(input.otherFees) || 0
+    otherFees: Number(input.otherFees) || 0,
+    estimatedEtsyFees: Number(input.estimatedEtsyFees) || 0,
+    actualEtsyFees:
+      input.actualEtsyFees === null || input.actualEtsyFees === undefined
+        ? null
+        : Number(input.actualEtsyFees) || 0,
+    feesStatus: input.feesStatus ?? "estimated",
+    refundType: input.refundType ?? null,
+    refundAmount: Number(input.refundAmount) || 0,
+    refundedAt: input.refundedAt ?? null,
+    productCostRecovered: Boolean(input.productCostRecovered),
+    etsyFeesRefunded: Number(input.etsyFeesRefunded) || 0
   };
 }

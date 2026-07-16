@@ -39,6 +39,7 @@ export default function DayPage() {
       <MetricGrid>
         <KpiCard label="Commandes" value={String(stats.orders)} icon={PackageCheck} />
         <KpiCard label="CA brut" value={formatCurrency(stats.grossRevenue)} icon={Receipt} />
+        <KpiCard label="Remboursements" value={formatCurrency(stats.refunds)} icon={Receipt} />
         <KpiCard label="CA net" value={formatCurrency(stats.netRevenue)} icon={BadgeEuro} />
         <KpiCard
           label="Benefice net"
@@ -49,7 +50,7 @@ export default function DayPage() {
         <KpiCard label="Marge" value={formatPercent(stats.margin)} icon={Percent} />
         <KpiCard label="Frais Etsy" value={formatCurrency(stats.etsyFees)} icon={TrendingDown} />
         <KpiCard label="Couts produits" value={formatCurrency(stats.productCost)} icon={Receipt} />
-        <KpiCard label="Pub Etsy" value={formatCurrency(stats.etsyAds)} icon={BadgeEuro} />
+        <KpiCard label="Offsite Ads" value={formatCurrency(stats.etsyAds)} icon={BadgeEuro} />
       </MetricGrid>
 
       <section className="rounded-lg border border-sage bg-white shadow-soft">

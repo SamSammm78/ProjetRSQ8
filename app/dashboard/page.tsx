@@ -143,6 +143,7 @@ export default function DashboardPage() {
           value={formatRatio(todayStats.profitabilityRatioAverage)}
           icon={Scale}
         />
+        <KpiCard label="Remboursements jour" value={formatCurrency(todayStats.refunds)} icon={Receipt} />
         <KpiCard label="Commandes" value={String(todayStats.orders)} icon={PackageCheck} />
         <KpiCard label="Marge" value={formatPercent(todayStats.margin)} icon={Percent} />
       </MetricGrid>
@@ -176,6 +177,7 @@ export default function DashboardPage() {
         </div>
         <MetricGrid>
           <KpiCard label="CA brut periode" value={formatCurrency(periodStats.grossRevenue)} icon={Receipt} />
+          <KpiCard label="Remboursements" value={formatCurrency(periodStats.refunds)} icon={Receipt} />
           <KpiCard label="CA net periode" value={formatCurrency(periodStats.netRevenue)} icon={BadgeEuro} />
           <KpiCard
             label="Benefice periode"
@@ -314,6 +316,7 @@ function DailyRevenueDetail({
           <MetricGrid>
             <KpiCard label="Commandes du jour" value={String(stats.orders)} icon={PackageCheck} />
             <KpiCard label="Total CA brut" value={formatCurrency(stats.grossRevenue)} icon={Receipt} />
+            <KpiCard label="Total rembourse" value={formatCurrency(stats.refunds)} icon={Receipt} />
             <KpiCard label="Total CA net" value={formatCurrency(stats.netRevenue)} icon={BadgeEuro} />
             <KpiCard
               label="Total benefice"
@@ -346,6 +349,7 @@ function DailyRevenueDetail({
                       <th className="px-4 py-3">Commande</th>
                       <th className="px-4 py-3">Boutique</th>
                       <th className="px-4 py-3">CA brut</th>
+                      <th className="px-4 py-3">Remb.</th>
                       <th className="px-4 py-3">CA net</th>
                       <th className="px-4 py-3">Benefice</th>
                       <th className="px-4 py-3">Frais Etsy</th>
@@ -363,6 +367,7 @@ function DailyRevenueDetail({
                           {shopNameById.get(transaction.shopId) ?? "-"}
                         </td>
                         <td className="px-4 py-4">{formatCurrency(transaction.grossRevenue)}</td>
+                        <td className="px-4 py-4">{formatCurrency(transaction.refundAmount)}</td>
                         <td className="px-4 py-4">{formatCurrency(transaction.netRevenue)}</td>
                         <td className="px-4 py-4">{formatCurrency(transaction.netProfit)}</td>
                         <td className="px-4 py-4">{formatCurrency(transaction.etsyFees)}</td>
@@ -402,6 +407,7 @@ function DailyRevenueCard({
       <div className="mt-3 grid gap-2 text-sm">
         <DetailRow label="Boutique" value={shopName} />
         <DetailRow label="CA brut" value={formatCurrency(transaction.grossRevenue)} />
+        <DetailRow label="Remboursement" value={formatCurrency(transaction.refundAmount)} />
         <DetailRow label="CA net" value={formatCurrency(transaction.netRevenue)} />
         <DetailRow label="Benefice" value={formatCurrency(transaction.netProfit)} />
         <DetailRow label="Frais Etsy" value={formatCurrency(transaction.etsyFees)} />

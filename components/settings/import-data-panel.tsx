@@ -39,7 +39,7 @@ export function ImportDataPanel() {
         date: row.date,
         month: `${row.date.slice(0, 7)}-01`,
         orderNumber: row.orderNumber,
-        status: row.status,
+        status: row.status === "refunded" ? "refunded" : "paid",
         grossRevenue: row.grossRevenue,
         refunds: row.refunds,
         etsyFees: row.etsyFees,
@@ -47,7 +47,15 @@ export function ImportDataPanel() {
         productCost: row.productCost,
         shippingPaid: row.shippingPaid,
         otherFees: row.otherFees,
-        notes: row.notes
+        notes: row.notes,
+        estimatedEtsyFees: row.etsyFees,
+        actualEtsyFees: null,
+        feesStatus: "estimated",
+        refundType: null,
+        refundAmount: row.refunds,
+        refundedAt: null,
+        productCostRecovered: false,
+        etsyFeesRefunded: 0
       }));
 
     const importedCount = await addTransactions(newTransactions);

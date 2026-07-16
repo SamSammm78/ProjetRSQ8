@@ -2,13 +2,24 @@
 
 import { seedShops, seedTransactions } from "@/data/seed";
 import { calculateTransactionMetrics } from "@/lib/calculations";
-import type { Shop, Transaction, TransactionInput } from "@/lib/types";
+import type {
+  FeesStatus,
+  RefundType,
+  Shop,
+  Transaction,
+  TransactionInput,
+  TransactionStatus,
+  TransactionUpdateInput
+} from "@/lib/types";
 import { createClient } from "@/utils/supabase/client";
 
 type ShopRow = {
   id: string;
   name: string;
   active: boolean;
+  fee_calculation_mode?: string | null;
+  estimated_fee_percentage?: number | string | null;
+  estimated_fixed_fee?: number | string | null;
   created_at: string;
   updated_at: string;
 };
@@ -31,15 +42,46 @@ type TransactionRow = {
   net_profit: number;
   margin: number;
   notes: string;
+  estimated_etsy_fees?: number | string | null;
+  actual_etsy_fees?: number | string | null;
+  fees_status?: string | null;
+  refund_type?: string | null;
+  refund_amount?: number | string | null;
+  refunded_at?: string | null;
+  product_cost_recovered?: boolean | null;
+  etsy_fees_refunded?: number | string | null;
   created_at: string;
   updated_at: string;
 };
+
+function asNumber(value: number | string | null | undefined, fallback = 0) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  return Number(value) || fallback;
+}
+
+function normalizeStatus(status: string | null | undefined): TransactionStatus {
+  return status === "refunded" ? "refunded" : "paid";
+}
+
+function normalizeFeesStatus(status: string | null | undefined): FeesStatus {
+  return status === "confirmed" ? "confirmed" : "estimated";
+}
+
+function normalizeRefundType(type: string | null | undefined): RefundType | null {
+  return type === "full_product_recovered" || type === "full_product_not_recovered" ? type : null;
+}
 
 function mapShop(row: ShopRow): Shop {
   return {
     id: row.id,
     name: row.name,
     active: row.active,
+    feeCalculationMode: row.fee_calculation_mode === "manual" ? "manual" : "automatic",
+    estimatedFeePercentage: asNumber(row.estimated_fee_percentage, 11),
+    estimatedFixedFee: asNumber(row.estimated_fixed_fee, 0.3),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -52,24 +94,35 @@ function mapTransaction(row: TransactionRow): Transaction {
     date: row.date,
     month: row.month,
     orderNumber: row.order_number,
-    status: row.status,
-    grossRevenue: Number(row.gross_revenue),
-    refunds: Number(row.refunds),
-    etsyFees: Number(row.etsy_fees),
-    etsyAds: Number(row.etsy_ads),
-    productCost: Number(row.product_cost),
-    shippingPaid: Number(row.shipping_paid),
-    otherFees: Number(row.other_fees),
-    netRevenue: Number(row.net_revenue),
-    netProfit: Number(row.net_profit),
-    margin: Number(row.margin),
+    status: normalizeStatus(row.status),
+    grossRevenue: asNumber(row.gross_revenue),
+    refunds: asNumber(row.refunds),
+    etsyFees: asNumber(row.etsy_fees),
+    etsyAds: asNumber(row.etsy_ads),
+    productCost: asNumber(row.product_cost),
+    shippingPaid: asNumber(row.shipping_paid),
+    otherFees: asNumber(row.other_fees),
+    netRevenue: asNumber(row.net_revenue),
+    netProfit: asNumber(row.net_profit),
+    margin: asNumber(row.margin),
     notes: row.notes,
+    estimatedEtsyFees: asNumber(row.estimated_etsy_fees, asNumber(row.etsy_fees)),
+    actualEtsyFees:
+      row.actual_etsy_fees === null || row.actual_etsy_fees === undefined
+        ? null
+        : asNumber(row.actual_etsy_fees),
+    feesStatus: normalizeFeesStatus(row.fees_status),
+    refundType: normalizeRefundType(row.refund_type),
+    refundAmount: asNumber(row.refund_amount, asNumber(row.refunds)),
+    refundedAt: row.refunded_at ?? null,
+    productCostRecovered: Boolean(row.product_cost_recovered),
+    etsyFeesRefunded: asNumber(row.etsy_fees_refunded),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
 }
 
-function toTransactionInsert(transaction: TransactionInput) {
+function toTransactionPayload(transaction: TransactionInput | TransactionUpdateInput) {
   return {
     shop_id: transaction.shopId,
     date: transaction.date,
@@ -83,7 +136,15 @@ function toTransactionInsert(transaction: TransactionInput) {
     product_cost: transaction.productCost,
     shipping_paid: transaction.shippingPaid,
     other_fees: transaction.otherFees,
-    notes: transaction.notes
+    notes: transaction.notes,
+    estimated_etsy_fees: transaction.estimatedEtsyFees,
+    actual_etsy_fees: transaction.actualEtsyFees,
+    fees_status: transaction.feesStatus,
+    refund_type: transaction.refundType,
+    refund_amount: transaction.refundAmount,
+    refunded_at: transaction.refundedAt,
+    product_cost_recovered: transaction.productCostRecovered,
+    etsy_fees_refunded: transaction.etsyFeesRefunded
   };
 }
 
@@ -129,7 +190,13 @@ export async function createShopInSupabase(name: string) {
 export async function updateShopInSupabase(shop: Shop) {
   const { data, error } = await supabase
     .from("shops")
-    .update({ name: shop.name, active: shop.active })
+    .update({
+      name: shop.name,
+      active: shop.active,
+      fee_calculation_mode: shop.feeCalculationMode,
+      estimated_fee_percentage: shop.estimatedFeePercentage,
+      estimated_fixed_fee: shop.estimatedFixedFee
+    })
     .eq("id", shop.id)
     .select("*")
     .single();
@@ -152,7 +219,7 @@ export async function deleteShopInSupabase(shopId: string) {
 export async function createTransactionInSupabase(transaction: TransactionInput) {
   const { data, error } = await supabase
     .from("transactions")
-    .insert(toTransactionInsert(transaction))
+    .insert(toTransactionPayload(transaction))
     .select("*")
     .single();
 
@@ -170,7 +237,7 @@ export async function createTransactionsInSupabase(transactions: TransactionInpu
 
   const { data, error } = await supabase
     .from("transactions")
-    .insert(transactions.map(toTransactionInsert))
+    .insert(transactions.map(toTransactionPayload))
     .select("*");
 
   if (error) {
@@ -178,6 +245,77 @@ export async function createTransactionsInSupabase(transactions: TransactionInpu
   }
 
   return (data ?? []).map((transaction) => mapTransaction(transaction as TransactionRow));
+}
+
+export async function updateTransactionInSupabase(
+  transactionId: string,
+  transaction: TransactionUpdateInput
+) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .update(toTransactionPayload(transaction))
+    .eq("id", transactionId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTransaction(data as TransactionRow);
+}
+
+export async function refundTransactionInSupabase(
+  transaction: Transaction,
+  refund: {
+    refundType: RefundType;
+    etsyFeesRefunded: number;
+    productCostRecovered: boolean;
+  }
+) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({
+      status: "refunded",
+      refunds: transaction.grossRevenue,
+      refund_type: refund.refundType,
+      refund_amount: transaction.grossRevenue,
+      refunded_at: new Date().toISOString(),
+      product_cost_recovered: refund.productCostRecovered,
+      etsy_fees_refunded: refund.etsyFeesRefunded
+    })
+    .eq("id", transaction.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTransaction(data as TransactionRow);
+}
+
+export async function cancelTransactionRefundInSupabase(transaction: Transaction) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({
+      status: "paid",
+      refunds: 0,
+      refund_type: null,
+      refund_amount: 0,
+      refunded_at: null,
+      product_cost_recovered: false,
+      etsy_fees_refunded: 0
+    })
+    .eq("id", transaction.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTransaction(data as TransactionRow);
 }
 
 export async function deleteTransactionInSupabase(transactionId: string) {
@@ -227,7 +365,15 @@ export async function resetSupabaseData() {
         productCost: transaction.productCost,
         shippingPaid: transaction.shippingPaid,
         otherFees: transaction.otherFees,
-        notes: transaction.notes
+        notes: transaction.notes,
+        estimatedEtsyFees: transaction.etsyFees,
+        actualEtsyFees: null,
+        feesStatus: "estimated",
+        refundType: null,
+        refundAmount: transaction.refunds,
+        refundedAt: null,
+        productCostRecovered: false,
+        etsyFeesRefunded: 0
       };
 
       return input;

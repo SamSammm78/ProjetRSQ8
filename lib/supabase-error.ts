@@ -6,11 +6,12 @@ type SupabaseLikeError = {
 };
 
 export function alertSupabaseError(error: unknown) {
-  const supabaseError = error as SupabaseLikeError;
+  const supabaseError =
+    error && typeof error === "object" ? (error as SupabaseLikeError) : null;
 
   console.error("Erreur Supabase complète:", error);
   alert(
     "Erreur Supabase : " +
-      (supabaseError.message || supabaseError.error_description || JSON.stringify(error))
+      (supabaseError?.message || supabaseError?.error_description || JSON.stringify(error))
   );
 }

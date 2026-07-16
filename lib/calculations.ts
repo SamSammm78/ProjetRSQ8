@@ -1,18 +1,75 @@
 import type { DailyStats, Transaction, TransactionInput } from "@/lib/types";
 
-export function calculateTransactionMetrics(transaction: TransactionInput) {
-  const netRevenue = transaction.grossRevenue - transaction.etsyFees - transaction.etsyAds;
-  const netProfit =
-    netRevenue -
+export function calculateEstimatedEtsyFees(
+  grossRevenue: number,
+  estimatedFeePercentage: number,
+  estimatedFixedFee: number
+) {
+  return grossRevenue > 0 ? grossRevenue * (estimatedFeePercentage / 100) + estimatedFixedFee : 0;
+}
+
+export function getEffectiveEtsyFees(transaction: {
+  estimatedEtsyFees: number;
+  actualEtsyFees: number | null;
+  feesStatus: string;
+  etsyFees: number;
+}) {
+  if (transaction.feesStatus === "confirmed") {
+    return transaction.actualEtsyFees ?? transaction.etsyFees ?? 0;
+  }
+
+  return transaction.estimatedEtsyFees || transaction.etsyFees || 0;
+}
+
+export function calculateTransactionProfit(transaction: TransactionInput) {
+  const etsyFees = getEffectiveEtsyFees(transaction);
+
+  return (
+    transaction.grossRevenue -
     transaction.refunds -
+    etsyFees -
+    transaction.etsyAds -
     transaction.productCost -
     transaction.shippingPaid -
-    transaction.otherFees;
+    transaction.otherFees
+  );
+}
+
+export function calculateTransactionMargin(transaction: { grossRevenue: number; netProfit: number }) {
+  return transaction.grossRevenue > 0 ? transaction.netProfit / transaction.grossRevenue : 0;
+}
+
+export function calculateRefundedTransactionProfit(transaction: TransactionInput) {
+  const etsyFees = getEffectiveEtsyFees(transaction);
+  const remainingEtsyFees = Math.max(0, etsyFees - transaction.etsyFeesRefunded);
+  const effectiveProductCost = transaction.productCostRecovered ? 0 : transaction.productCost;
+
+  return {
+    remainingEtsyFees,
+    effectiveProductCost,
+    finalProfit:
+      transaction.grossRevenue -
+      transaction.refundAmount -
+      remainingEtsyFees -
+      transaction.etsyAds -
+      effectiveProductCost -
+      transaction.shippingPaid -
+      transaction.otherFees
+  };
+}
+
+export function calculateTransactionMetrics(transaction: TransactionInput) {
+  const etsyFees = getEffectiveEtsyFees(transaction);
+  const netRevenue = transaction.grossRevenue - transaction.refundAmount - etsyFees - transaction.etsyAds;
+  const netProfit =
+    transaction.status === "refunded"
+      ? calculateRefundedTransactionProfit(transaction).finalProfit
+      : calculateTransactionProfit(transaction);
 
   return {
     netRevenue,
     netProfit,
-    margin: netRevenue > 0 ? netProfit / netRevenue : 0
+    margin: calculateTransactionMargin({ grossRevenue: transaction.grossRevenue, netProfit })
   };
 }
 
@@ -33,6 +90,7 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
       etsyFees: stats.etsyFees + transaction.etsyFees,
       productCost: stats.productCost + transaction.productCost,
       etsyAds: stats.etsyAds + transaction.etsyAds,
+      refunds: stats.refunds + transaction.refundAmount,
       profitabilityRatioTotal:
         stats.profitabilityRatioTotal + calculateProfitabilityRatio(transaction),
       profitabilityRatioCount:
@@ -46,6 +104,7 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
       etsyFees: 0,
       productCost: 0,
       etsyAds: 0,
+      refunds: 0,
       profitabilityRatioTotal: 0,
       profitabilityRatioCount: 0
     }
@@ -63,7 +122,8 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
         : 0,
     etsyFees: totals.etsyFees,
     productCost: totals.productCost,
-    etsyAds: totals.etsyAds
+    etsyAds: totals.etsyAds,
+    refunds: totals.refunds
   };
 }
 

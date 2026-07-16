@@ -2,16 +2,24 @@ export type Shop = {
   id: string;
   name: string;
   active: boolean;
+  feeCalculationMode: FeeCalculationMode;
+  estimatedFeePercentage: number;
+  estimatedFixedFee: number;
   createdAt: string;
   updatedAt: string;
 };
+
+export type FeeCalculationMode = "automatic" | "manual";
+export type TransactionStatus = "paid" | "refunded";
+export type RefundType = "full_product_recovered" | "full_product_not_recovered";
+export type FeesStatus = "estimated" | "confirmed";
 
 export type TransactionInput = {
   shopId: string;
   date: string;
   month: string;
   orderNumber: string;
-  status: string;
+  status: TransactionStatus;
   grossRevenue: number;
   refunds: number;
   etsyFees: number;
@@ -20,6 +28,14 @@ export type TransactionInput = {
   shippingPaid: number;
   otherFees: number;
   notes: string;
+  estimatedEtsyFees: number;
+  actualEtsyFees: number | null;
+  feesStatus: FeesStatus;
+  refundType: RefundType | null;
+  refundAmount: number;
+  refundedAt: string | null;
+  productCostRecovered: boolean;
+  etsyFeesRefunded: number;
 };
 
 export type Transaction = TransactionInput & {
@@ -31,6 +47,11 @@ export type Transaction = TransactionInput & {
   updatedAt: string;
 };
 
+export type TransactionUpdateInput = Partial<
+  Omit<TransactionInput, "shopId" | "date" | "month" | "orderNumber">
+> &
+  Pick<TransactionInput, "shopId" | "date" | "month" | "orderNumber">;
+
 export type DailyStats = {
   orders: number;
   grossRevenue: number;
@@ -41,6 +62,7 @@ export type DailyStats = {
   etsyFees: number;
   productCost: number;
   etsyAds: number;
+  refunds: number;
 };
 
 export type CsvImportRow = {

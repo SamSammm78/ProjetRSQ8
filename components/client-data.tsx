@@ -5,13 +5,16 @@ import {
   createShopInSupabase,
   createTransactionInSupabase,
   createTransactionsInSupabase,
+  cancelTransactionRefundInSupabase,
   deleteShopInSupabase,
   deleteTransactionInSupabase,
   loadDashboardData,
+  refundTransactionInSupabase,
   resetSupabaseData,
-  updateShopInSupabase
+  updateShopInSupabase,
+  updateTransactionInSupabase
 } from "@/lib/supabase-db";
-import type { Shop, Transaction, TransactionInput } from "@/lib/types";
+import type { RefundType, Shop, Transaction, TransactionInput, TransactionUpdateInput } from "@/lib/types";
 
 type DataContextValue = {
   error: string;
@@ -19,10 +22,17 @@ type DataContextValue = {
   shops: Shop[];
   transactions: Transaction[];
   addShop: (name: string) => Promise<void>;
+  updateShop: (shop: Shop) => Promise<void>;
   toggleShop: (shopId: string) => Promise<void>;
   deleteShop: (shopId: string) => Promise<void>;
   addTransaction: (transaction: TransactionInput) => Promise<void>;
   addTransactions: (transactions: TransactionInput[]) => Promise<number>;
+  updateTransaction: (transactionId: string, transaction: TransactionUpdateInput) => Promise<void>;
+  refundTransaction: (
+    transaction: Transaction,
+    refund: { refundType: RefundType; etsyFeesRefunded: number; productCostRecovered: boolean }
+  ) => Promise<void>;
+  cancelTransactionRefund: (transaction: Transaction) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   resetData: () => Promise<void>;
 };
@@ -64,6 +74,14 @@ export function ClientDataProvider({ children }: { children: React.ReactNode }) 
         const shop = await createShopInSupabase(name);
         setShops((currentShops) => [...currentShops, shop]);
       },
+      updateShop: async (shop) => {
+        const updatedShop = await updateShopInSupabase(shop);
+        setShops((currentShops) =>
+          currentShops.map((currentShop) =>
+            currentShop.id === updatedShop.id ? updatedShop : currentShop
+          )
+        );
+      },
       toggleShop: async (shopId) => {
         const shop = shops.find((currentShop) => currentShop.id === shopId);
 
@@ -93,6 +111,30 @@ export function ClientDataProvider({ children }: { children: React.ReactNode }) 
         const createdTransactions = await createTransactionsInSupabase(transactionInputs);
         setTransactions((currentTransactions) => [...createdTransactions, ...currentTransactions]);
         return createdTransactions.length;
+      },
+      updateTransaction: async (transactionId, transactionInput) => {
+        const updatedTransaction = await updateTransactionInSupabase(transactionId, transactionInput);
+        setTransactions((currentTransactions) =>
+          currentTransactions.map((transaction) =>
+            transaction.id === updatedTransaction.id ? updatedTransaction : transaction
+          )
+        );
+      },
+      refundTransaction: async (transaction, refund) => {
+        const updatedTransaction = await refundTransactionInSupabase(transaction, refund);
+        setTransactions((currentTransactions) =>
+          currentTransactions.map((currentTransaction) =>
+            currentTransaction.id === updatedTransaction.id ? updatedTransaction : currentTransaction
+          )
+        );
+      },
+      cancelTransactionRefund: async (transaction) => {
+        const updatedTransaction = await cancelTransactionRefundInSupabase(transaction);
+        setTransactions((currentTransactions) =>
+          currentTransactions.map((currentTransaction) =>
+            currentTransaction.id === updatedTransaction.id ? updatedTransaction : currentTransaction
+          )
+        );
       },
       deleteTransaction: async (transactionId) => {
         await deleteTransactionInSupabase(transactionId);

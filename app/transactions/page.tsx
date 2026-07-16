@@ -1,23 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download, Plus } from "lucide-react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Download, Plus, RotateCcw, Save, X } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
 import { exportTransactions, normalizeTransactionInput } from "@/lib/api";
+import {
+  calculateEstimatedEtsyFees,
+  calculateRefundedTransactionProfit,
+  calculateTransactionMetrics
+} from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
-import type { TransactionInput } from "@/lib/types";
+import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
+import { alertSupabaseError } from "@/lib/supabase-error";
+import type { RefundType, Shop, Transaction, TransactionInput } from "@/lib/types";
 
-function createEmptyForm(): TransactionInput {
-  const today = getTodayIsoDate();
+const LAST_SHOP_KEY = "projetrsq8:last-transaction-shop";
 
+function createEmptyForm(shopId = "", date = getTodayIsoDate()): TransactionInput {
   return {
-    shopId: "",
-    date: today,
-    month: getMonthStartIsoDate(),
+    shopId,
+    date,
+    month: `${date.slice(0, 7)}-01`,
     orderNumber: "",
-    status: "Payee",
+    status: "paid",
     grossRevenue: 0,
     refunds: 0,
     etsyFees: 0,
@@ -25,16 +32,86 @@ function createEmptyForm(): TransactionInput {
     productCost: 0,
     shippingPaid: 0,
     otherFees: 0,
-    notes: ""
+    notes: "",
+    estimatedEtsyFees: 0,
+    actualEtsyFees: null,
+    feesStatus: "estimated",
+    refundType: null,
+    refundAmount: 0,
+    refundedAt: null,
+    productCostRecovered: false,
+    etsyFeesRefunded: 0
   };
 }
 
+function parseAmount(value: string) {
+  return Number(value.replace(",", ".")) || 0;
+}
+
+function getShopFeeEstimate(shop: Shop | undefined, grossRevenue: number) {
+  if (!shop || shop.feeCalculationMode === "manual") {
+    return 0;
+  }
+
+  return calculateEstimatedEtsyFees(
+    grossRevenue,
+    shop.estimatedFeePercentage,
+    shop.estimatedFixedFee
+  );
+}
+
 export default function TransactionsPage() {
-  const { addTransaction: saveTransaction, deleteTransaction: removeTransaction, error, isLoading, shops, transactions } =
-    useClientData();
+  const {
+    addTransaction: saveTransaction,
+    cancelTransactionRefund,
+    error,
+    isLoading,
+    refundTransaction,
+    shops,
+    transactions,
+    updateTransaction
+  } = useClientData();
   const [form, setForm] = useState<TransactionInput>(() => createEmptyForm());
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
   const [endDate, setEndDate] = useState(() => getTodayIsoDate());
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [refundTarget, setRefundTarget] = useState<Transaction | null>(null);
+  const orderInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedShop = shops.find((shop) => shop.id === form.shopId);
+  const preview = calculateTransactionMetrics(form);
+
+  useEffect(() => {
+    if (form.shopId || shops.length === 0) {
+      return;
+    }
+
+    const lastShopId =
+      typeof window !== "undefined" ? window.localStorage.getItem(LAST_SHOP_KEY) : "";
+    const fallbackShop = shops.find((shop) => shop.id === lastShopId) ?? shops[0];
+
+    setForm((current) => ({ ...current, shopId: fallbackShop.id }));
+  }, [form.shopId, shops]);
+
+  useEffect(() => {
+    const estimate = getShopFeeEstimate(selectedShop, form.grossRevenue);
+
+    if (selectedShop?.feeCalculationMode !== "automatic") {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      estimatedEtsyFees: estimate,
+      etsyFees: estimate,
+      actualEtsyFees: null,
+      feesStatus: "estimated"
+    }));
+  }, [form.grossRevenue, selectedShop]);
+
   const filteredTransactions = useMemo(
     () =>
       transactions.filter(
@@ -48,26 +125,110 @@ export default function TransactionsPage() {
   );
 
   function updateField(key: keyof TransactionInput, value: string) {
-    setForm((current) => ({
-      ...current,
-      [key]: key === "shopId" || key === "date" || key === "month" || key === "orderNumber" || key === "status" || key === "notes"
-        ? value
-        : Number(value)
-    }));
+    setForm((current) => {
+      const nextValue =
+        key === "shopId" ||
+        key === "date" ||
+        key === "month" ||
+        key === "orderNumber" ||
+        key === "status" ||
+        key === "notes" ||
+        key === "feesStatus" ||
+        key === "refundType" ||
+        key === "refundedAt"
+          ? value
+          : parseAmount(value);
+      const nextForm = { ...current, [key]: nextValue };
+
+      if (key === "date") {
+        nextForm.month = `${value.slice(0, 7)}-01`;
+      }
+
+      if (key === "etsyFees") {
+        nextForm.actualEtsyFees = parseAmount(value);
+        nextForm.feesStatus = "confirmed";
+      }
+
+      return nextForm;
+    });
   }
 
-  async function addTransaction() {
-    const shopId = form.shopId || shops[0]?.id;
-    if (!shopId) {
+  function validateForm(input: TransactionInput, ignoredTransactionId?: string) {
+    if (!input.shopId) {
+      return "Choisis une boutique avant d'enregistrer.";
+    }
+
+    if (input.grossRevenue <= 0) {
+      return "Le montant recu doit etre superieur a zero.";
+    }
+
+    const orderNumber = input.orderNumber.trim();
+    if (!orderNumber) {
+      return "Ajoute le numero de commande Etsy.";
+    }
+
+    const duplicate = transactions.some(
+      (transaction) =>
+        transaction.id !== ignoredTransactionId &&
+        transaction.shopId === input.shopId &&
+        transaction.orderNumber.trim().toLowerCase() === orderNumber.toLowerCase()
+    );
+
+    return duplicate ? "Cette commande existe deja pour cette boutique." : "";
+  }
+
+  async function saveSale(keepFocus = false) {
+    const normalized = normalizeTransactionInput({
+      ...form,
+      orderNumber: form.orderNumber.trim(),
+      month: `${form.date.slice(0, 7)}-01`
+    });
+    const validationError = validateForm(normalized);
+
+    if (validationError) {
+      alert(validationError);
       return;
     }
 
-    await saveTransaction(normalizeTransactionInput({ ...form, shopId }));
-    setForm({ ...createEmptyForm(), shopId, date: form.date, month: `${form.date.slice(0, 7)}-01` });
+    setIsSaving(true);
+    try {
+      await saveTransaction(normalized);
+      window.localStorage.setItem(LAST_SHOP_KEY, normalized.shopId);
+      setForm(createEmptyForm(normalized.shopId, normalized.date));
+      setIsAdvancedOpen(false);
+
+      if (keepFocus) {
+        window.setTimeout(() => orderInputRef.current?.focus(), 0);
+      }
+    } catch (caughtError) {
+      alertSupabaseError(caughtError);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  async function deleteTransaction(transactionId: string) {
-    await removeTransaction(transactionId);
+  async function saveEditedTransaction(updated: TransactionInput) {
+    if (!editingTransaction) {
+      return;
+    }
+
+    const normalized = normalizeTransactionInput(updated);
+    const validationError = validateForm(normalized, editingTransaction.id);
+
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateTransaction(editingTransaction.id, normalized);
+      setEditingTransaction(null);
+    } catch (caughtError) {
+      alertSupabaseError(caughtError);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function downloadJson() {
@@ -95,30 +256,73 @@ export default function TransactionsPage() {
       }
     >
       <section className="rounded-lg border border-sage bg-white p-4 shadow-soft">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Nouvelle vente</h2>
+        </div>
+        <div className="mt-4 grid gap-3 md:max-w-2xl">
           <SelectField label="Boutique" value={form.shopId} onChange={(value) => updateField("shopId", value)}>
-            <option value="">Choisir</option>
+            <option value="">Choisir une boutique</option>
             {shops.map((shop) => (
               <option key={shop.id} value={shop.id}>
                 {shop.name}
               </option>
             ))}
           </SelectField>
-          <InputField label="Date" type="date" value={form.date} onChange={(value) => updateField("date", value)} />
-          <InputField label="Commande" value={form.orderNumber} onChange={(value) => updateField("orderNumber", value)} />
-          <InputField label="CA brut" type="number" value={form.grossRevenue} onChange={(value) => updateField("grossRevenue", value)} />
-          <InputField label="Remboursements" type="number" value={form.refunds} onChange={(value) => updateField("refunds", value)} />
-          <InputField label="Frais Etsy" type="number" value={form.etsyFees} onChange={(value) => updateField("etsyFees", value)} />
-          <InputField label="Pub Etsy" type="number" value={form.etsyAds} onChange={(value) => updateField("etsyAds", value)} />
-          <InputField label="Cout produit" type="number" value={form.productCost} onChange={(value) => updateField("productCost", value)} />
+          <InputField
+            ref={orderInputRef}
+            label="Commande Etsy"
+            value={form.orderNumber}
+            onChange={(value) => updateField("orderNumber", value)}
+            inputMode="numeric"
+          />
+          <InputField
+            label="Montant recu"
+            value={form.grossRevenue || ""}
+            onChange={(value) => updateField("grossRevenue", value)}
+            inputMode="decimal"
+            suffix="EUR"
+          />
         </div>
-        <button
-          className="focus-ring mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white sm:w-auto"
-          onClick={addTransaction}
-        >
-          <Plus size={18} />
-          Ajouter la transaction
-        </button>
+
+        <div className="mt-4 grid gap-2 rounded-lg bg-mist p-4 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-ink/65">Benefice estime</span>
+            <strong className={preview.netProfit >= 0 ? "text-moss" : "text-clay"}>
+              {formatCurrency(preview.netProfit)}
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-ink/65">Marge estimee</span>
+            <strong>{formatPercent(preview.margin)}</strong>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-moss px-5 font-semibold text-white disabled:opacity-60"
+            onClick={() => saveSale(false)}
+            disabled={isSaving}
+          >
+            <Save size={18} />
+            {isSaving ? "Enregistrement..." : "Enregistrer"}
+          </button>
+          <button
+            className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-sage bg-white px-5 font-semibold disabled:opacity-60"
+            onClick={() => saveSale(true)}
+            disabled={isSaving}
+          >
+            <Plus size={18} />
+            Enregistrer + nouvelle vente
+          </button>
+        </div>
+
+        <details className="mt-4" open={isAdvancedOpen} onToggle={(event) => setIsAdvancedOpen(event.currentTarget.open)}>
+          <summary className="focus-ring inline-flex cursor-pointer list-none items-center gap-2 rounded-lg px-1 py-2 text-sm font-semibold text-ink/70">
+            <ChevronDown size={17} />
+            Details avances
+          </summary>
+          <AdvancedFields form={form} onChange={updateField} />
+        </details>
       </section>
 
       {isLoading ? <p className="text-sm text-ink/60">Chargement des transactions...</p> : null}
@@ -133,12 +337,7 @@ export default function TransactionsPage() {
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <InputField
-            label="Date de debut"
-            type="date"
-            value={startDate}
-            onChange={setStartDate}
-          />
+          <InputField label="Date de debut" type="date" value={startDate} onChange={setStartDate} />
           <InputField label="Date de fin" type="date" value={endDate} onChange={setEndDate} />
         </div>
       </section>
@@ -146,36 +345,353 @@ export default function TransactionsPage() {
       <TransactionsTable
         transactions={sortedTransactions}
         shops={shops}
-        onDelete={deleteTransaction}
+        onEdit={setEditingTransaction}
+        onRefund={setRefundTarget}
+        onView={setSelectedTransaction}
       />
+
+      {selectedTransaction ? (
+        <TransactionDetailModal
+          shops={shops}
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          onCorrectRefund={() => {
+            setRefundTarget(selectedTransaction);
+            setSelectedTransaction(null);
+          }}
+        />
+      ) : null}
+      {editingTransaction ? (
+        <EditTransactionModal
+          isSaving={isSaving}
+          shops={shops}
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+          onSave={saveEditedTransaction}
+        />
+      ) : null}
+      {refundTarget ? (
+        <RefundModal
+          isSaving={isSaving}
+          transaction={refundTarget}
+          onCancelRefund={async () => {
+            if (!window.confirm("Annuler le remboursement de cette transaction ?")) {
+              return;
+            }
+
+            setIsSaving(true);
+            try {
+              await cancelTransactionRefund(refundTarget);
+              setRefundTarget(null);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          onClose={() => setRefundTarget(null)}
+          onConfirm={async (refundType, etsyFeesRefunded) => {
+            setIsSaving(true);
+            try {
+              await refundTransaction(refundTarget, {
+                refundType,
+                etsyFeesRefunded,
+                productCostRecovered: refundType === "full_product_recovered"
+              });
+              setRefundTarget(null);
+            } catch (caughtError) {
+              alertSupabaseError(caughtError);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 }
 
-function InputField({
-  label,
-  value,
-  onChange,
-  type = "text"
+function AdvancedFields({
+  form,
+  onChange
 }: {
-  label: string;
-  value: string | number;
-  onChange: (value: string) => void;
-  type?: string;
+  form: TransactionInput;
+  onChange: (key: keyof TransactionInput, value: string) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-ink/70">
-      {label}
-      <input
-        className="focus-ring h-12 rounded-lg border border-sage bg-mist px-3 text-ink"
-        type={type}
-        step={type === "number" ? "0.01" : undefined}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <InputField label="Date de la vente" type="date" value={form.date} onChange={(value) => onChange("date", value)} />
+      <InputField label="Cout du produit" value={form.productCost || ""} onChange={(value) => onChange("productCost", value)} inputMode="decimal" />
+      <InputField label="Livraison fournisseur" value={form.shippingPaid || ""} onChange={(value) => onChange("shippingPaid", value)} inputMode="decimal" />
+      <InputField label="Frais Etsy" value={form.etsyFees || ""} onChange={(value) => onChange("etsyFees", value)} inputMode="decimal" />
+      <InputField label="Offsite Ads" value={form.etsyAds || ""} onChange={(value) => onChange("etsyAds", value)} inputMode="decimal" />
+      <InputField label="Autres frais" value={form.otherFees || ""} onChange={(value) => onChange("otherFees", value)} inputMode="decimal" />
+      <label className="grid gap-2 text-sm font-medium text-ink/70 sm:col-span-2 xl:col-span-3">
+        Notes
+        <textarea
+          className="focus-ring min-h-24 rounded-lg border border-sage bg-mist px-3 py-3 text-ink"
+          value={form.notes}
+          onChange={(event) => onChange("notes", event.target.value)}
+        />
+      </label>
+    </div>
+  );
+}
+
+function TransactionDetailModal({
+  shops,
+  transaction,
+  onClose,
+  onCorrectRefund
+}: {
+  shops: Shop[];
+  transaction: Transaction;
+  onClose: () => void;
+  onCorrectRefund: () => void;
+}) {
+  const shopName = shops.find((shop) => shop.id === transaction.shopId)?.name ?? "Boutique";
+
+  return (
+    <Modal title={`Commande #${transaction.orderNumber || "-"}`} onClose={onClose}>
+      <div className="grid gap-2 text-sm">
+        <DetailRow label="Boutique" value={shopName} />
+        <DetailRow label="Date" value={formatDate(transaction.date)} />
+        <DetailRow label="CA brut initial" value={formatCurrency(transaction.grossRevenue)} />
+        <DetailRow label="Remboursement" value={formatCurrency(transaction.refundAmount)} />
+        <DetailRow label="CA net" value={formatCurrency(transaction.netRevenue)} />
+        <DetailRow label="Benefice final" value={formatCurrency(transaction.netProfit)} />
+        <DetailRow label="Frais Etsy" value={formatCurrency(transaction.etsyFees)} />
+        <DetailRow label="Frais Etsy rembourses" value={formatCurrency(transaction.etsyFeesRefunded)} />
+        <DetailRow label="Offsite Ads" value={formatCurrency(transaction.etsyAds)} />
+        <DetailRow label="Cout produit" value={formatCurrency(transaction.productCost)} />
+        <DetailRow label="Livraison fournisseur" value={formatCurrency(transaction.shippingPaid)} />
+        {transaction.refundedAt ? <DetailRow label="Date remboursement" value={formatDate(transaction.refundedAt.slice(0, 10))} /> : null}
+        {transaction.notes ? <p className="mt-2 rounded-lg bg-mist p-3 text-ink/70">{transaction.notes}</p> : null}
+      </div>
+      {transaction.status === "refunded" ? (
+        <button className="focus-ring mt-4 h-11 rounded-lg border border-sage bg-white px-4 text-sm font-semibold" onClick={onCorrectRefund}>
+          Corriger le remboursement
+        </button>
+      ) : null}
+    </Modal>
+  );
+}
+
+function EditTransactionModal({
+  isSaving,
+  shops,
+  transaction,
+  onClose,
+  onSave
+}: {
+  isSaving: boolean;
+  shops: Shop[];
+  transaction: Transaction;
+  onClose: () => void;
+  onSave: (transaction: TransactionInput) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<TransactionInput>(transaction);
+
+  function updateDraft(key: keyof TransactionInput, value: string) {
+    setDraft((current) => ({
+      ...current,
+      [key]: key === "shopId" || key === "date" || key === "month" || key === "orderNumber" || key === "status" || key === "notes" || key === "feesStatus" || key === "refundType" || key === "refundedAt" ? value : parseAmount(value),
+      ...(key === "date" ? { month: `${value.slice(0, 7)}-01` } : {}),
+      ...(key === "etsyFees" ? { actualEtsyFees: parseAmount(value), feesStatus: "confirmed" as const } : {})
+    }));
+  }
+
+  const preview = calculateTransactionMetrics(draft);
+
+  return (
+    <Modal title={`Modifier #${transaction.orderNumber || "-"}`} onClose={onClose}>
+      <div className="grid gap-3">
+        <SelectField label="Boutique" value={draft.shopId} onChange={(value) => updateDraft("shopId", value)}>
+          {shops.map((shop) => (
+            <option key={shop.id} value={shop.id}>{shop.name}</option>
+          ))}
+        </SelectField>
+        <InputField label="Commande Etsy" value={draft.orderNumber} onChange={(value) => updateDraft("orderNumber", value)} />
+        <InputField label="Montant recu" value={draft.grossRevenue || ""} onChange={(value) => updateDraft("grossRevenue", value)} />
+        <AdvancedFields form={draft} onChange={updateDraft} />
+        <div className="rounded-lg bg-mist p-3 text-sm">
+          Benefice prevu : <strong>{formatCurrency(preview.netProfit)}</strong>
+        </div>
+        <button className="focus-ring h-11 rounded-lg bg-moss px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={isSaving} onClick={() => onSave(draft)}>
+          {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function RefundModal({
+  isSaving,
+  transaction,
+  onCancelRefund,
+  onClose,
+  onConfirm
+}: {
+  isSaving: boolean;
+  transaction: Transaction;
+  onCancelRefund: () => Promise<void>;
+  onClose: () => void;
+  onConfirm: (refundType: RefundType, etsyFeesRefunded: number) => Promise<void>;
+}) {
+  const [refundType, setRefundType] = useState<RefundType | "">(transaction.refundType ?? "");
+  const [etsyFeesRefunded, setEtsyFeesRefunded] = useState(transaction.etsyFeesRefunded);
+  const preview =
+    refundType === ""
+      ? null
+      : calculateRefundedTransactionProfit({
+          ...transaction,
+          status: "refunded",
+          refundType,
+          refundAmount: transaction.grossRevenue,
+          productCostRecovered: refundType === "full_product_recovered",
+          etsyFeesRefunded
+        });
+
+  return (
+    <Modal title={`Rembourser la commande #${transaction.orderNumber || "-"}`} onClose={onClose}>
+      <div className="grid gap-4">
+        <div className="grid gap-2 rounded-lg bg-mist p-4 text-sm">
+          <DetailRow label="Montant paye" value={formatCurrency(transaction.grossRevenue)} />
+          <DetailRow label="Cout du produit" value={formatCurrency(transaction.productCost)} />
+          <DetailRow label="Benefice actuel" value={formatCurrency(transaction.netProfit)} />
+        </div>
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-semibold">Type de remboursement</legend>
+          <RefundChoice
+            checked={refundType === "full_product_recovered"}
+            description="Le client retourne le produit. Le cout du produit n'est plus compte comme une perte."
+            label="Remboursement integral - produit recupere"
+            onChange={() => setRefundType("full_product_recovered")}
+          />
+          <RefundChoice
+            checked={refundType === "full_product_not_recovered"}
+            description="Le client conserve le produit. Le cout du produit reste compte comme une perte."
+            label="Remboursement integral - produit non recupere"
+            onChange={() => setRefundType("full_product_not_recovered")}
+          />
+        </fieldset>
+        <InputField
+          label="Frais Etsy rembourses"
+          value={etsyFeesRefunded || ""}
+          onChange={(value) => setEtsyFeesRefunded(parseAmount(value))}
+          inputMode="decimal"
+        />
+        <div className="grid gap-2 rounded-lg border border-sage p-4 text-sm">
+          <p className="font-semibold">Avant remboursement</p>
+          <DetailRow label="Benefice" value={formatCurrency(transaction.netProfit)} />
+          <p className="mt-2 font-semibold">Apres remboursement</p>
+          <DetailRow label="Resultat" value={formatCurrency(preview?.finalProfit ?? transaction.netProfit)} />
+          <p className="text-ink/60">Cette transaction restera dans votre historique.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+          {transaction.status === "refunded" ? (
+            <button className="focus-ring inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-clay px-4 text-sm font-semibold text-clay disabled:opacity-60" disabled={isSaving} onClick={onCancelRefund}>
+              <RotateCcw size={16} />
+              Annuler le remboursement
+            </button>
+          ) : <span />}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button className="focus-ring h-11 rounded-lg border border-sage bg-white px-4 text-sm font-semibold" onClick={onClose}>
+              Annuler
+            </button>
+            <button
+              className="focus-ring h-11 rounded-lg bg-moss px-4 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={isSaving || refundType === ""}
+              onClick={() => refundType && onConfirm(refundType, etsyFeesRefunded)}
+            >
+              {isSaving ? "Enregistrement..." : "Confirmer le remboursement"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function RefundChoice({
+  checked,
+  description,
+  label,
+  onChange
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer gap-3 rounded-lg border border-sage p-3 text-sm">
+      <input type="radio" checked={checked} onChange={onChange} />
+      <span>
+        <span className="block font-semibold">{label}</span>
+        <span className="mt-1 block text-ink/60">{description}</span>
+      </span>
     </label>
   );
 }
+
+function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-ink/55 p-0 sm:items-center sm:justify-center sm:p-4">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-soft sm:max-w-2xl sm:rounded-lg">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sage bg-white p-4">
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <button className="focus-ring grid h-10 w-10 place-items-center rounded-lg border border-sage" onClick={onClose} aria-label="Fermer">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </section>
+    </div>
+  );
+}
+
+const InputField = forwardRef<
+  HTMLInputElement,
+  {
+    label: string;
+    value: string | number;
+    onChange: (value: string) => void;
+    type?: string;
+    inputMode?: "decimal" | "numeric";
+    suffix?: string;
+  }
+>(function InputField(
+  {
+    label,
+    value,
+    onChange,
+    type = "text",
+    inputMode,
+    suffix
+  },
+  ref
+) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink/70">
+      {label}
+      <span className="relative">
+        <input
+          ref={ref}
+          className="focus-ring h-12 w-full rounded-lg border border-sage bg-mist px-3 pr-14 text-ink"
+          type={type}
+          step={type === "number" || inputMode === "decimal" ? "0.01" : undefined}
+          inputMode={inputMode}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {suffix ? (
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink/45">
+            {suffix}
+          </span>
+        ) : null}
+      </span>
+    </label>
+  );
+});
 
 function SelectField({
   label,
@@ -199,5 +715,14 @@ function SelectField({
         {children}
       </select>
     </label>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-ink/60">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
   );
 }
