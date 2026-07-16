@@ -41,6 +41,10 @@ function parseAmount(value: string) {
   return Number(value.replace(",", ".")) || 0;
 }
 
+function formatDecimalInput(value: string | number) {
+  return String(value).replace(".", ",");
+}
+
 export default function TransactionsPage() {
   const {
     addTransaction: saveTransaction,
@@ -643,18 +647,51 @@ const InputField = forwardRef<
   },
   ref
 ) {
+  const isDecimal = inputMode === "decimal";
+  const [decimalDraft, setDecimalDraft] = useState(() =>
+    isDecimal ? formatDecimalInput(value) : ""
+  );
+  const lastEmittedDecimal = useRef(isDecimal ? parseAmount(String(value)) : 0);
+
+  useEffect(() => {
+    if (!isDecimal) {
+      return;
+    }
+
+    const numericValue = parseAmount(String(value));
+    if (numericValue !== lastEmittedDecimal.current) {
+      lastEmittedDecimal.current = numericValue;
+      setDecimalDraft(formatDecimalInput(value));
+    }
+  }, [isDecimal, value]);
+
+  function handleChange(nextValue: string) {
+    if (!isDecimal) {
+      onChange(nextValue);
+      return;
+    }
+
+    if (!/^-?\d*(?:[.,]\d{0,2})?$/.test(nextValue)) {
+      return;
+    }
+
+    setDecimalDraft(nextValue);
+    lastEmittedDecimal.current = parseAmount(nextValue);
+    onChange(nextValue);
+  }
+
   return (
-    <label className="grid gap-2 text-sm font-medium text-ink/70">
+    <label className="grid min-w-0 max-w-full gap-2 text-sm font-medium text-ink/70">
       {label}
-      <span className="relative">
+      <span className="relative block min-w-0 w-full max-w-full overflow-hidden rounded-lg">
         <input
           ref={ref}
-          className="focus-ring h-12 w-full rounded-lg border border-sage bg-mist px-3 pr-14 text-ink"
+          className="focus-ring block h-12 min-w-0 w-full max-w-full rounded-lg border border-sage bg-mist px-3 pr-14 text-base text-ink sm:text-sm"
           type={type}
           step={type === "number" || inputMode === "decimal" ? "0.01" : undefined}
           inputMode={inputMode}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
+          value={isDecimal ? decimalDraft : value}
+          onChange={(event) => handleChange(event.target.value)}
         />
         {suffix ? (
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink/45">
@@ -678,10 +715,10 @@ function SelectField({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-ink/70">
+    <label className="grid min-w-0 max-w-full gap-2 text-sm font-medium text-ink/70">
       {label}
       <select
-        className="focus-ring h-12 rounded-lg border border-sage bg-mist px-3 text-ink"
+        className="focus-ring h-12 min-w-0 w-full max-w-full rounded-lg border border-sage bg-mist px-3 text-base text-ink sm:text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
