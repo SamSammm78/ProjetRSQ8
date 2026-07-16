@@ -28,11 +28,18 @@ input[type="date"] {
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
+  text-align: center;
 }
 
 input[type="date"]::-webkit-date-and-time-value {
   min-inline-size: 0;
-  text-align: left;
+  text-align: center;
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  display: flex;
+  inline-size: 100%;
+  justify-content: center;
 }
 
 @media (max-width: 767px) {
