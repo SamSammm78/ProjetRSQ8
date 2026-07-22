@@ -6,7 +6,8 @@ export type Shop = {
   updatedAt: string;
 };
 
-export type TransactionStatus = "paid" | "refunded";
+export type FinancialStatus = "paid" | "partially_refunded" | "refunded" | "dispute";
+export type TransactionStatus = FinancialStatus;
 export type RefundType = "full_product_recovered" | "full_product_not_recovered";
 
 export type TransactionInput = {
@@ -28,6 +29,9 @@ export type TransactionInput = {
   refundedAt: string | null;
   productCostRecovered: boolean;
   etsyFeesRefunded: number;
+  actualSupplierCost?: number | null;
+  supplierRefundAmount?: number;
+  refundReason?: string;
 };
 
 export type Transaction = TransactionInput & {
@@ -73,6 +77,15 @@ export type CsvImportRow = {
 
 export type SupplierOrderStatus = "active" | "completed" | "cancelled";
 
+export type LogisticsStatus =
+  | "to_order"
+  | "ordered"
+  | "shipped"
+  | "delivered"
+  | "problem"
+  | "cancelled"
+  | "lost";
+
 export type SupplierOrder = {
   id: string;
   platform: string;
@@ -88,6 +101,28 @@ export type SupplierOrder = {
   images: SupplierOrderImage[];
   createdAt: string;
   updatedAt: string;
+  transactionId: string | null;
+  shopId: string | null;
+  etsyOrderNumber: string;
+  saleDate: string;
+  logisticsStatus: LogisticsStatus;
+  financialStatus: FinancialStatus;
+  supplierAccountId: string | null;
+  supplierProductId: string | null;
+  supplierUrl: string;
+  supplierOrderNumber: string;
+  estimatedProductCost: number;
+  actualSupplierCost: number | null;
+  supplierShipping: number;
+  supplierCurrency: string;
+  orderedAt: string | null;
+  shippedAt: string | null;
+  estimatedDeliveryAt: string | null;
+  deliveredAt: string | null;
+  trackingNumber: string;
+  carrier: string;
+  isStandalone: boolean;
+  transaction: Transaction | null;
 };
 
 export type SupplierOrderInput = {
@@ -108,4 +143,63 @@ export type SupplierOrderImage = {
   fileName: string;
   storagePath: string;
   createdAt: string;
+};
+
+export type SupplierAccount = {
+  id: string;
+  name: string;
+  platform: "aliexpress";
+  email: string;
+  cardLabel: string;
+  notes: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type SupplierProduct = {
+  id: string;
+  internalName: string;
+  shopId: string | null;
+  supplierUrl: string;
+  usualCost: number | null;
+  supplierName: string;
+  notes: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type ProblemUrgency = "low" | "normal" | "urgent";
+
+export type SupplierOrderProblem = {
+  id: string;
+  orderId: string;
+  type: string;
+  description: string;
+  urgency: ProblemUrgency;
+  nextAction: string;
+  reminderAt: string | null;
+  previousStatus: LogisticsStatus;
+  resolvedAt: string | null;
+  createdAt: string;
+};
+
+export type OrderEvent = {
+  id: string;
+  orderId: string;
+  type: string;
+  title: string;
+  description: string;
+  createdAt: string;
+};
+
+export type SupplierSettings = {
+  supplierOrderAlertHours: number;
+  supplierShippingAlertDays: number;
+  deliveryLateAlertDays: number;
+};
+
+export type OrderAlert = {
+  type: "to_order" | "shipping_late" | "delivery_late" | "problem" | "reminder";
+  label: string;
+  tone: "warning" | "danger";
 };

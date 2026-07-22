@@ -14,7 +14,7 @@ import {
   updateShopInSupabase,
   updateTransactionInSupabase
 } from "@/lib/supabase-db";
-import type { RefundType, Shop, Transaction, TransactionInput, TransactionUpdateInput } from "@/lib/types";
+import type { Shop, Transaction, TransactionInput, TransactionUpdateInput } from "@/lib/types";
 
 type DataContextValue = {
   error: string;
@@ -30,7 +30,12 @@ type DataContextValue = {
   updateTransaction: (transactionId: string, transaction: TransactionUpdateInput) => Promise<void>;
   refundTransaction: (
     transaction: Transaction,
-    refund: { refundType: RefundType; etsyFeesRefunded: number; productCostRecovered: boolean }
+    refund: {
+      customerRefundAmount: number;
+      supplierRefundAmount: number;
+      etsyFeesRefunded: number;
+      refundReason: string;
+    }
   ) => Promise<void>;
   cancelTransactionRefund: (transaction: Transaction) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;

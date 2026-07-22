@@ -1,6 +1,12 @@
 "use client";
 
-import type { SupplierOrder, SupplierOrderImage, SupplierOrderInput } from "@/lib/types";
+import type {
+  FinancialStatus,
+  LogisticsStatus,
+  SupplierOrder,
+  SupplierOrderImage,
+  SupplierOrderInput
+} from "@/lib/types";
 import { createClient } from "@/utils/supabase/client";
 
 type SupplierOrderRow = {
@@ -17,6 +23,27 @@ type SupplierOrderRow = {
   completed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  transaction_id?: string | null;
+  shop_id?: string | null;
+  etsy_order_number?: string | null;
+  sale_date?: string | null;
+  logistics_status?: LogisticsStatus | null;
+  financial_status?: FinancialStatus | null;
+  supplier_account_id?: string | null;
+  supplier_product_id?: string | null;
+  supplier_url?: string | null;
+  supplier_order_number?: string | null;
+  estimated_product_cost?: number | string | null;
+  actual_supplier_cost?: number | string | null;
+  supplier_shipping?: number | string | null;
+  supplier_currency?: string | null;
+  ordered_at?: string | null;
+  shipped_at?: string | null;
+  estimated_delivery_at?: string | null;
+  delivered_at?: string | null;
+  tracking_number?: string | null;
+  carrier?: string | null;
+  is_standalone?: boolean | null;
 };
 
 type SupplierOrderImageRow = {
@@ -49,7 +76,32 @@ function mapSupplierOrder(row: SupplierOrderRow, images: SupplierOrderImage[] = 
     completedAt: row.completed_at,
     images,
     createdAt: row.created_at ?? "",
-    updatedAt: row.updated_at ?? ""
+    updatedAt: row.updated_at ?? "",
+    transactionId: row.transaction_id ?? null,
+    shopId: row.shop_id ?? null,
+    etsyOrderNumber: row.etsy_order_number ?? "",
+    saleDate: row.sale_date ?? row.order_date,
+    logisticsStatus: row.logistics_status ?? (row.status === "completed" ? "delivered" : "to_order"),
+    financialStatus: row.financial_status ?? "paid",
+    supplierAccountId: row.supplier_account_id ?? null,
+    supplierProductId: row.supplier_product_id ?? null,
+    supplierUrl: row.supplier_url ?? row.order_link ?? "",
+    supplierOrderNumber: row.supplier_order_number ?? row.order_number ?? "",
+    estimatedProductCost: Number(row.estimated_product_cost ?? row.total_amount ?? 0),
+    actualSupplierCost:
+      row.actual_supplier_cost === null || row.actual_supplier_cost === undefined
+        ? null
+        : Number(row.actual_supplier_cost),
+    supplierShipping: Number(row.supplier_shipping ?? 0),
+    supplierCurrency: row.supplier_currency ?? "EUR",
+    orderedAt: row.ordered_at ?? null,
+    shippedAt: row.shipped_at ?? null,
+    estimatedDeliveryAt: row.estimated_delivery_at ?? null,
+    deliveredAt: row.delivered_at ?? row.completed_at ?? null,
+    trackingNumber: row.tracking_number ?? "",
+    carrier: row.carrier ?? "",
+    isStandalone: row.is_standalone ?? !row.transaction_id,
+    transaction: null
   };
 }
 
@@ -126,6 +178,34 @@ export async function getActiveSupplierOrders() {
   return attachImagesToOrders((data ?? []).map((row) => mapSupplierOrder(row as SupplierOrderRow)));
 }
 
+export async function getAllSupplierOrders() {
+  const { data, error } = await supabase
+    .from("supplier_orders")
+    .select("*")
+    .order("sale_date", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return attachImagesToOrders((data ?? []).map((row) => mapSupplierOrder(row as SupplierOrderRow)));
+}
+
+export async function getSupplierOrder(orderId: string) {
+  const { data, error } = await supabase
+    .from("supplier_orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const [order] = await attachImagesToOrders([mapSupplierOrder(data as SupplierOrderRow)]);
+  return order;
+}
+
 export async function createSupplierOrder(input: SupplierOrderInput, images: File[] = []) {
   validateImageFiles(images);
 
@@ -140,7 +220,13 @@ export async function createSupplierOrder(input: SupplierOrderInput, images: Fil
       order_link: input.orderLink,
       country: input.country,
       notes: input.notes,
-      status: "active"
+      status: "active",
+      logistics_status: "ordered",
+      financial_status: "paid",
+      supplier_order_number: input.orderNumber,
+      supplier_url: input.orderLink,
+      actual_supplier_cost: input.totalAmount,
+      is_standalone: true
     })
     .select("*")
     .single();

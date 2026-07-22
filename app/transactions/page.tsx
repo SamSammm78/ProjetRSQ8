@@ -6,11 +6,11 @@ import { PageShell } from "@/components/page-shell";
 import { TransactionsTable } from "@/components/transactions-table";
 import { useClientData } from "@/components/client-data";
 import { exportTransactions, normalizeTransactionInput } from "@/lib/api";
-import { calculateRefundedTransactionProfit, calculateTransactionMetrics } from "@/lib/calculations";
+import { calculateFinalProfit, calculateTransactionMetrics } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/format";
 import { alertSupabaseError } from "@/lib/supabase-error";
-import type { RefundType, Shop, Transaction, TransactionInput } from "@/lib/types";
+import type { Shop, Transaction, TransactionInput } from "@/lib/types";
 
 const LAST_SHOP_KEY = "projetrsq8:last-transaction-shop";
 
@@ -364,14 +364,10 @@ export default function TransactionsPage() {
             }
           }}
           onClose={() => setRefundTarget(null)}
-          onConfirm={async (refundType, etsyFeesRefunded) => {
+          onConfirm={async (refund) => {
             setIsSaving(true);
             try {
-              await refundTransaction(refundTarget, {
-                refundType,
-                etsyFeesRefunded,
-                productCostRecovered: refundType === "full_product_recovered"
-              });
+              await refundTransaction(refundTarget, refund);
               setRefundTarget(null);
             } catch (caughtError) {
               alertSupabaseError(caughtError);
@@ -511,21 +507,32 @@ function RefundModal({
   transaction: Transaction;
   onCancelRefund: () => Promise<void>;
   onClose: () => void;
-  onConfirm: (refundType: RefundType, etsyFeesRefunded: number) => Promise<void>;
+  onConfirm: (refund: {
+    customerRefundAmount: number;
+    supplierRefundAmount: number;
+    etsyFeesRefunded: number;
+    refundReason: string;
+  }) => Promise<void>;
 }) {
-  const [refundType, setRefundType] = useState<RefundType | "">(transaction.refundType ?? "");
+  const [refundMode, setRefundMode] = useState<"full" | "partial">(
+    transaction.refundAmount > 0 && transaction.refundAmount < transaction.grossRevenue ? "partial" : "full"
+  );
+  const [customerRefundAmount, setCustomerRefundAmount] = useState(
+    transaction.refundAmount || transaction.grossRevenue
+  );
+  const [supplierRefundAmount, setSupplierRefundAmount] = useState(
+    transaction.supplierRefundAmount ?? 0
+  );
   const [etsyFeesRefunded, setEtsyFeesRefunded] = useState(transaction.etsyFeesRefunded);
-  const preview =
-    refundType === ""
-      ? null
-      : calculateRefundedTransactionProfit({
-          ...transaction,
-          status: "refunded",
-          refundType,
-          refundAmount: transaction.grossRevenue,
-          productCostRecovered: refundType === "full_product_recovered",
-          etsyFeesRefunded
-        });
+  const [refundReason, setRefundReason] = useState(transaction.refundReason ?? "");
+  const preview = calculateFinalProfit({
+    ...transaction,
+    status: customerRefundAmount >= transaction.grossRevenue ? "refunded" : "partially_refunded",
+    refunds: customerRefundAmount,
+    refundAmount: customerRefundAmount,
+    supplierRefundAmount,
+    etsyFeesRefunded
+  });
 
   return (
     <Modal title={`Rembourser la commande #${transaction.orderNumber || "-"}`} onClose={onClose}>
@@ -535,32 +542,60 @@ function RefundModal({
           <DetailRow label="Cout du produit" value={formatCurrency(transaction.productCost)} />
           <DetailRow label="Benefice actuel" value={formatCurrency(transaction.netProfit)} />
         </div>
-        <fieldset className="grid gap-3">
-          <legend className="text-sm font-semibold">Type de remboursement</legend>
-          <RefundChoice
-            checked={refundType === "full_product_recovered"}
-            description="Le client retourne le produit. Le cout du produit n'est plus compte comme une perte."
-            label="Remboursement integral - produit recupere"
-            onChange={() => setRefundType("full_product_recovered")}
-          />
-          <RefundChoice
-            checked={refundType === "full_product_not_recovered"}
-            description="Le client conserve le produit. Le cout du produit reste compte comme une perte."
-            label="Remboursement integral - produit non recupere"
-            onChange={() => setRefundType("full_product_not_recovered")}
-          />
-        </fieldset>
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-mist p-1">
+          {(["full", "partial"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`h-10 rounded-lg text-sm font-semibold ${refundMode === mode ? "bg-white text-moss shadow-soft" : "text-ink/60"}`}
+              onClick={() => {
+                setRefundMode(mode);
+                if (mode === "full") setCustomerRefundAmount(transaction.grossRevenue);
+              }}
+            >
+              {mode === "full" ? "Integral" : "Partiel"}
+            </button>
+          ))}
+        </div>
+        <InputField
+          label="Montant rembourse au client"
+          value={customerRefundAmount || ""}
+          onChange={(value) => setCustomerRefundAmount(parseAmount(value))}
+          inputMode="decimal"
+        />
+        <InputField
+          label="Montant recupere aupres d'AliExpress"
+          value={supplierRefundAmount || ""}
+          onChange={(value) => setSupplierRefundAmount(parseAmount(value))}
+          inputMode="decimal"
+        />
         <InputField
           label="Frais Etsy rembourses"
           value={etsyFeesRefunded || ""}
           onChange={(value) => setEtsyFeesRefunded(parseAmount(value))}
           inputMode="decimal"
         />
+        <InputField
+          label="Motif"
+          value={refundReason}
+          onChange={setRefundReason}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="transaction-action" onClick={() => setCustomerRefundAmount(transaction.grossRevenue)}>
+            Remboursement integral
+          </button>
+          <button type="button" className="transaction-action" onClick={() => setSupplierRefundAmount(0)}>
+            Aucun remboursement AliExpress
+          </button>
+          <button type="button" className="transaction-action" onClick={() => setSupplierRefundAmount(transaction.actualSupplierCost ?? transaction.productCost)}>
+            AliExpress integral
+          </button>
+        </div>
         <div className="grid gap-2 rounded-lg border border-sage p-4 text-sm">
           <p className="font-semibold">Avant remboursement</p>
           <DetailRow label="Benefice" value={formatCurrency(transaction.netProfit)} />
           <p className="mt-2 font-semibold">Apres remboursement</p>
-          <DetailRow label="Resultat" value={formatCurrency(preview?.finalProfit ?? transaction.netProfit)} />
+          <DetailRow label="Resultat" value={formatCurrency(preview)} />
           <p className="text-ink/60">Cette transaction restera dans votre historique.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
@@ -576,8 +611,8 @@ function RefundModal({
             </button>
             <button
               className="focus-ring h-11 rounded-lg bg-moss px-4 text-sm font-semibold text-white disabled:opacity-60"
-              disabled={isSaving || refundType === ""}
-              onClick={() => refundType && onConfirm(refundType, etsyFeesRefunded)}
+              disabled={isSaving || customerRefundAmount < 0 || customerRefundAmount > transaction.grossRevenue}
+              onClick={() => onConfirm({ customerRefundAmount, supplierRefundAmount, etsyFeesRefunded, refundReason })}
             >
               {isSaving ? "Enregistrement..." : "Confirmer le remboursement"}
             </button>
@@ -585,28 +620,6 @@ function RefundModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-function RefundChoice({
-  checked,
-  description,
-  label,
-  onChange
-}: {
-  checked: boolean;
-  description: string;
-  label: string;
-  onChange: () => void;
-}) {
-  return (
-    <label className="flex cursor-pointer gap-3 rounded-lg border border-sage p-3 text-sm">
-      <input type="radio" checked={checked} onChange={onChange} />
-      <span>
-        <span className="block font-semibold">{label}</span>
-        <span className="mt-1 block text-ink/60">{description}</span>
-      </span>
-    </label>
   );
 }
 

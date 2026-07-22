@@ -1,12 +1,31 @@
 import type { DailyStats, Transaction, TransactionInput } from "@/lib/types";
 
 export function calculateTransactionProfit(transaction: TransactionInput) {
+  return calculateFinalProfit(transaction);
+}
+
+export function getEffectiveProductCost(transaction: TransactionInput) {
+  return transaction.actualSupplierCost ?? transaction.productCost ?? 0;
+}
+
+export function calculateCustomerRefundImpact(transaction: TransactionInput) {
+  return transaction.refundAmount ?? transaction.refunds ?? 0;
+}
+
+export function calculateSupplierRefundImpact(transaction: TransactionInput) {
+  return transaction.supplierRefundAmount ?? 0;
+}
+
+export function calculateFinalProfit(transaction: TransactionInput) {
+  const remainingEtsyFees = Math.max(0, transaction.etsyFees - transaction.etsyFeesRefunded);
+
   return (
     transaction.grossRevenue -
-    transaction.refunds -
-    transaction.etsyFees -
+    calculateCustomerRefundImpact(transaction) -
+    remainingEtsyFees -
     transaction.etsyAds -
-    transaction.productCost -
+    getEffectiveProductCost(transaction) +
+    calculateSupplierRefundImpact(transaction) -
     transaction.shippingPaid -
     transaction.otherFees
   );
@@ -18,7 +37,7 @@ export function calculateTransactionMargin(transaction: { grossRevenue: number; 
 
 export function calculateRefundedTransactionProfit(transaction: TransactionInput) {
   const remainingEtsyFees = Math.max(0, transaction.etsyFees - transaction.etsyFeesRefunded);
-  const effectiveProductCost = transaction.productCostRecovered ? 0 : transaction.productCost;
+  const effectiveProductCost = getEffectiveProductCost(transaction);
 
   return {
     remainingEtsyFees,
@@ -30,7 +49,8 @@ export function calculateRefundedTransactionProfit(transaction: TransactionInput
       transaction.etsyAds -
       effectiveProductCost -
       transaction.shippingPaid -
-      transaction.otherFees
+      transaction.otherFees +
+      calculateSupplierRefundImpact(transaction)
   };
 }
 
@@ -40,10 +60,7 @@ export function calculateTransactionMetrics(transaction: TransactionInput) {
     transaction.refundAmount -
     transaction.etsyFees -
     transaction.etsyAds;
-  const netProfit =
-    transaction.status === "refunded"
-      ? calculateRefundedTransactionProfit(transaction).finalProfit
-      : calculateTransactionProfit(transaction);
+  const netProfit = calculateFinalProfit(transaction);
 
   return {
     netRevenue,
@@ -67,13 +84,17 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
       netRevenue: stats.netRevenue + transaction.netRevenue,
       netProfit: stats.netProfit + transaction.netProfit,
       etsyFees: stats.etsyFees + transaction.etsyFees,
-      productCost: stats.productCost + transaction.productCost,
+      productCost: stats.productCost + getEffectiveProductCost(transaction),
       etsyAds: stats.etsyAds + transaction.etsyAds,
       refunds: stats.refunds + transaction.refundAmount,
       profitabilityRatioTotal:
-        stats.profitabilityRatioTotal + calculateProfitabilityRatio(transaction),
+        stats.profitabilityRatioTotal +
+        calculateProfitabilityRatio({
+          netRevenue: transaction.netRevenue,
+          productCost: getEffectiveProductCost(transaction)
+        }),
       profitabilityRatioCount:
-        stats.profitabilityRatioCount + (transaction.productCost > 0 ? 1 : 0)
+        stats.profitabilityRatioCount + (getEffectiveProductCost(transaction) > 0 ? 1 : 0)
     }),
     {
       orders: 0,

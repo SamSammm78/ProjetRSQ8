@@ -4,6 +4,7 @@ import { Database, Download, RefreshCcw } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 import { ImportDataPanel } from "@/components/settings/import-data-panel";
+import { SupplierManagement } from "@/components/settings/supplier-management";
 
 function toCsv(rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
@@ -64,6 +65,8 @@ export default function SettingsPage() {
       </section>
 
       <ImportDataPanel />
+
+      <SupplierManagement />
 
       <section className="grid gap-3 rounded-lg border border-sage bg-white p-5 shadow-soft sm:grid-cols-2">
         <button

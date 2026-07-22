@@ -28,6 +28,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { MetricGrid } from "@/components/metric-grid";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
+import { DashboardRequiredActions } from "@/components/dashboard-required-actions";
 import { addDays, aggregateDailyStats } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
@@ -147,6 +148,8 @@ export default function DashboardPage() {
         <KpiCard label="Commandes" value={String(todayStats.orders)} icon={PackageCheck} />
         <KpiCard label="Marge" value={formatPercent(todayStats.margin)} icon={Percent} />
       </MetricGrid>
+
+      <DashboardRequiredActions />
 
       <section className="grid gap-4 rounded-lg border border-sage bg-white p-4 shadow-soft">
         <div className="flex flex-col gap-1">

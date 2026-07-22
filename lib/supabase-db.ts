@@ -46,6 +46,9 @@ type TransactionRow = {
   refunded_at?: string | null;
   product_cost_recovered?: boolean | null;
   etsy_fees_refunded?: number | string | null;
+  actual_supplier_cost?: number | string | null;
+  supplier_refund_amount?: number | string | null;
+  refund_reason?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,7 +62,9 @@ function asNumber(value: number | string | null | undefined, fallback = 0) {
 }
 
 function normalizeStatus(status: string | null | undefined): TransactionStatus {
-  return status === "refunded" ? "refunded" : "paid";
+  return status === "refunded" || status === "partially_refunded" || status === "dispute"
+    ? status
+    : "paid";
 }
 
 function normalizeRefundType(type: string | null | undefined): RefundType | null {
@@ -104,6 +109,12 @@ function mapTransaction(row: TransactionRow): Transaction {
     refundedAt: row.refunded_at ?? null,
     productCostRecovered: Boolean(row.product_cost_recovered),
     etsyFeesRefunded: asNumber(row.etsy_fees_refunded),
+    actualSupplierCost:
+      row.actual_supplier_cost === null || row.actual_supplier_cost === undefined
+        ? null
+        : asNumber(row.actual_supplier_cost),
+    supplierRefundAmount: asNumber(row.supplier_refund_amount),
+    refundReason: row.refund_reason ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -244,21 +255,32 @@ export async function updateTransactionInSupabase(
 export async function refundTransactionInSupabase(
   transaction: Transaction,
   refund: {
-    refundType: RefundType;
+    customerRefundAmount: number;
+    supplierRefundAmount: number;
     etsyFeesRefunded: number;
-    productCostRecovered: boolean;
+    refundReason: string;
   }
 ) {
+  const effectiveProductCost = transaction.actualSupplierCost ?? transaction.productCost;
+  if (refund.customerRefundAmount < 0 || refund.customerRefundAmount > transaction.grossRevenue) {
+    throw new Error("Le remboursement client doit etre compris entre 0 et le CA brut.");
+  }
+  if (refund.supplierRefundAmount < 0 || refund.supplierRefundAmount > effectiveProductCost + transaction.shippingPaid) {
+    throw new Error("Le remboursement AliExpress depasse le cout fournisseur total.");
+  }
+  const status: TransactionStatus =
+    refund.customerRefundAmount >= transaction.grossRevenue ? "refunded" : "partially_refunded";
   const { data, error } = await supabase
     .from("transactions")
     .update({
-      status: "refunded",
-      refunds: transaction.grossRevenue,
-      refund_type: refund.refundType,
-      refund_amount: transaction.grossRevenue,
+      status,
+      refunds: refund.customerRefundAmount,
+      refund_amount: refund.customerRefundAmount,
       refunded_at: new Date().toISOString(),
-      product_cost_recovered: refund.productCostRecovered,
-      etsy_fees_refunded: refund.etsyFeesRefunded
+      product_cost_recovered: false,
+      etsy_fees_refunded: refund.etsyFeesRefunded,
+      supplier_refund_amount: refund.supplierRefundAmount,
+      refund_reason: refund.refundReason
     })
     .eq("id", transaction.id)
     .select("*")
@@ -267,6 +289,11 @@ export async function refundTransactionInSupabase(
   if (error) {
     throw error;
   }
+
+  await supabase
+    .from("supplier_orders")
+    .update({ financial_status: status })
+    .eq("transaction_id", transaction.id);
 
   return mapTransaction(data as TransactionRow);
 }
@@ -281,7 +308,9 @@ export async function cancelTransactionRefundInSupabase(transaction: Transaction
       refund_amount: 0,
       refunded_at: null,
       product_cost_recovered: false,
-      etsy_fees_refunded: 0
+      etsy_fees_refunded: 0,
+      supplier_refund_amount: 0,
+      refund_reason: ""
     })
     .eq("id", transaction.id)
     .select("*")
@@ -290,6 +319,11 @@ export async function cancelTransactionRefundInSupabase(transaction: Transaction
   if (error) {
     throw error;
   }
+
+  await supabase
+    .from("supplier_orders")
+    .update({ financial_status: "paid" })
+    .eq("transaction_id", transaction.id);
 
   return mapTransaction(data as TransactionRow);
 }
