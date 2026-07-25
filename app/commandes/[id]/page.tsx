@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, Clipboard, ExternalLink, PackageCheck, Save, TriangleAlert } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { OrderDetailModal } from "@/components/supplier-orders/order-detail-modal";
+import { FinalizeOrderControl } from "@/components/supplier-orders/finalize-order-control";
 import { useClientData } from "@/components/client-data";
 import { calculateFinalProfit, calculateTransactionMargin } from "@/lib/calculations";
 import { getTodayIsoDate } from "@/lib/dates";
@@ -146,6 +147,12 @@ export default function SupplierOrderDetailPage() {
           ) : null}
 
           <FinancialSection order={order} transaction={effectiveTransaction} finalProfit={finalProfit} finalMargin={finalMargin} />
+          <Section title="Finalisation manuelle">
+            <p className="mb-4 text-sm leading-6 text-ink/65">
+              La livraison ne finalise jamais automatiquement ce dossier. Valide-le uniquement lorsque plus aucune action n&apos;est necessaire.
+            </p>
+            <FinalizeOrderControl order={order} transaction={transaction} onChange={load} />
+          </Section>
           <ProblemSection isSaving={isSaving} order={order} problems={problems} onReport={(input) => run(() => reportSupplierProblem(order, input))} onResolve={(problemId, status) => run(() => resolveSupplierProblem(problemId, order.id, status))} />
           <Section title="Images et justificatifs">
             <button className="focus-ring h-11 rounded-lg border border-sage px-4 text-sm font-semibold" onClick={() => setShowImages(true)}>Ouvrir la galerie ({order.images.length})</button>

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, History, PackagePlus, Plus, Search, X } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { OrderImagePicker } from "@/components/supplier-orders/order-image-picker";
+import { FinalizeOrderControl } from "@/components/supplier-orders/finalize-order-control";
 import { useClientData } from "@/components/client-data";
 import { getOrderAlerts, getOrderProblems, getSupplierAccounts, getSupplierSettings, markSupplierOrderDelivered } from "@/lib/order-workflow";
 import { createSupplierOrder, getAllSupplierOrders } from "@/lib/supplier-orders";
@@ -60,7 +61,7 @@ function CommandesContent() {
   const searchParams = useSearchParams();
   const { shops, transactions } = useClientData();
   const requestedFilter = searchParams.get("filter");
-  const specialFilter = requestedFilter && ["shipping_late", "delivery_late", "reminder"].includes(requestedFilter)
+  const specialFilter = requestedFilter && ["shipping_late", "delivery_late", "reminder", "delivered_not_finalized"].includes(requestedFilter)
     ? requestedFilter
     : null;
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -131,7 +132,13 @@ function CommandesContent() {
     const rank: Record<LogisticsStatus, number> = { problem: 0, to_order: 1, ordered: 2, shipped: 3, lost: 4, delivered: 5, cancelled: 6 };
     return hydratedOrders
       .filter((order) => activeTab === "all" || order.logisticsStatus === activeTab)
-      .filter((order) => !specialFilter || getOrderAlerts(order, settings, problems.filter((problem) => problem.orderId === order.id)).some((alert) => alert.type === specialFilter))
+      .filter((order) => {
+        if (!specialFilter) return true;
+        if (specialFilter === "delivered_not_finalized") {
+          return order.logisticsStatus === "delivered" && !order.isFinalized;
+        }
+        return getOrderAlerts(order, settings, problems.filter((problem) => problem.orderId === order.id)).some((alert) => alert.type === specialFilter);
+      })
       .filter((order) => !accountFilter || order.supplierAccountId === accountFilter)
       .filter((order) => {
         if (!normalizedQuery) return true;
@@ -229,7 +236,7 @@ function CommandesContent() {
 
       <div className="grid gap-3 lg:hidden">
         {visibleOrders.map((order) => (
-          <OrderCard key={order.id} order={order} accountName={accountNameById.get(order.supplierAccountId ?? "") ?? order.accountUsed} alerts={getOrderAlerts(order, settings, problems.filter((problem) => problem.orderId === order.id))} shopName={shopNameById.get(order.shopId ?? "") ?? "Commande hors vente"} isSaving={isSaving} onDeliver={deliver} />
+          <OrderCard key={order.id} order={order} accountName={accountNameById.get(order.supplierAccountId ?? "") ?? order.accountUsed} alerts={getOrderAlerts(order, settings, problems.filter((problem) => problem.orderId === order.id))} shopName={shopNameById.get(order.shopId ?? "") ?? "Commande hors vente"} isSaving={isSaving} onDeliver={deliver} onRefresh={load} />
         ))}
       </div>
 
@@ -246,7 +253,7 @@ function CommandesContent() {
                   <td className="px-4 py-4"><p>{order.trackingNumber || "-"}</p><p className="text-ink/60">{order.estimatedDeliveryAt ? formatDate(order.estimatedDeliveryAt) : "Date non renseignee"}</p></td>
                   <td className="px-4 py-4"><StatusBadge status={order.logisticsStatus} /><p className="mt-2 text-xs text-ink/60">{FINANCIAL_LABELS[order.financialStatus]}</p>{alerts[0] ? <AlertBadge label={alerts[0].label} danger={alerts[0].tone === "danger"} /> : null}</td>
                   <td className="px-4 py-4 font-semibold text-moss">{formatCurrency(order.transaction?.netProfit ?? 0)}</td>
-                  <td className="px-4 py-4"><OrderActions order={order} isSaving={isSaving} onDeliver={deliver} /></td>
+                  <td className="px-4 py-4"><OrderActions order={order} isSaving={isSaving} onDeliver={deliver} onRefresh={load} /></td>
                 </tr>;
               })}
             </tbody>
@@ -269,19 +276,20 @@ function AlertBadge({ danger, label }: { danger: boolean; label: string }) {
   return <p className={`mt-2 flex items-center gap-1 text-xs font-semibold ${danger ? "text-clay" : "text-amber-700"}`}><AlertTriangle size={14} />{label}</p>;
 }
 
-function OrderActions({ isSaving, onDeliver, order }: { isSaving: boolean; onDeliver: (id: string) => void; order: SupplierOrder }) {
+function OrderActions({ isSaving, onDeliver, onRefresh, order }: { isSaving: boolean; onDeliver: (id: string) => void; onRefresh: () => void | Promise<void>; order: SupplierOrder }) {
   return <div className="flex flex-wrap gap-2">
     <Link className="focus-ring inline-flex h-9 items-center rounded-lg bg-moss px-3 text-xs font-semibold text-white" href={`/commandes/${order.id}`}>{order.logisticsStatus === "to_order" ? "Commander sur AliExpress" : "Ouvrir"}</Link>
     {order.logisticsStatus === "shipped" ? <button className="focus-ring inline-flex h-9 items-center gap-1 rounded-lg border border-sage px-3 text-xs font-semibold" disabled={isSaving} onClick={() => onDeliver(order.id)}><Check size={15} /> Livree</button> : null}
+    <FinalizeOrderControl compact order={order} transaction={order.transaction} onChange={onRefresh} />
   </div>;
 }
 
-function OrderCard({ accountName, alerts, isSaving, onDeliver, order, shopName }: { accountName: string; alerts: ReturnType<typeof getOrderAlerts>; isSaving: boolean; onDeliver: (id: string) => void; order: SupplierOrder; shopName: string }) {
+function OrderCard({ accountName, alerts, isSaving, onDeliver, onRefresh, order, shopName }: { accountName: string; alerts: ReturnType<typeof getOrderAlerts>; isSaving: boolean; onDeliver: (id: string) => void; onRefresh: () => void | Promise<void>; order: SupplierOrder; shopName: string }) {
   return <article className="rounded-lg border border-sage bg-white p-4 shadow-soft">
     <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-ink/55">{shopName}</p><h2 className="font-semibold">#{order.etsyOrderNumber || order.supplierOrderNumber || "Hors vente"}</h2><p className="mt-1 text-sm text-ink/60">Vente du {formatDate(order.saleDate)}</p></div><StatusBadge status={order.logisticsStatus} /></div>
     <div className="mt-3 grid grid-cols-2 gap-3 text-sm"><Info label="Montant recu" value={formatCurrency(order.transaction?.grossRevenue ?? 0)} /><Info label="Cout produit" value={formatCurrency(order.actualSupplierCost ?? order.estimatedProductCost)} /><Info label="Compte AliExpress" value={accountName || "Non renseigne"} /><Info label="Suivi" value={order.trackingNumber || "Non renseigne"} /><Info label="Livraison estimee" value={order.estimatedDeliveryAt ? formatDate(order.estimatedDeliveryAt) : "Non renseignee"} /><Info label="Benefice actuel" value={formatCurrency(order.transaction?.netProfit ?? 0)} /></div>
     {alerts.map((alert) => <AlertBadge key={alert.type} label={alert.label} danger={alert.tone === "danger"} />)}
-    <div className="mt-4"><OrderActions order={order} isSaving={isSaving} onDeliver={onDeliver} /></div>
+    <div className="mt-4"><OrderActions order={order} isSaving={isSaving} onDeliver={onDeliver} onRefresh={onRefresh} /></div>
   </article>;
 }
 

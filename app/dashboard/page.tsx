@@ -29,6 +29,7 @@ import { MetricGrid } from "@/components/metric-grid";
 import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 import { DashboardRequiredActions } from "@/components/dashboard-required-actions";
+import { FinalizedSalesSummary } from "@/components/finalized-sales-summary";
 import { addDays, aggregateDailyStats } from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
@@ -265,6 +266,8 @@ export default function DashboardPage() {
           </p>
         </aside>
       </section>
+
+      <FinalizedSalesSummary />
 
       {isDailyRevenueOpen ? (
         <DailyRevenueDetail

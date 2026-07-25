@@ -1,4 +1,10 @@
-import type { DailyStats, Transaction, TransactionInput } from "@/lib/types";
+import type {
+  DailyStats,
+  FinalizedSaleRecord,
+  FinalizedSalesSummary,
+  Transaction,
+  TransactionInput
+} from "@/lib/types";
 
 export function calculateTransactionProfit(transaction: TransactionInput) {
   return calculateFinalProfit(transaction);
@@ -137,4 +143,98 @@ export function addDays(date: string, amount: number) {
   const current = new Date(`${date}T12:00:00`);
   current.setDate(current.getDate() + amount);
   return current.toISOString().slice(0, 10);
+}
+
+export function calculateFinalizedSalesSummary(
+  records: FinalizedSaleRecord[],
+  receivedPayouts: number
+): FinalizedSalesSummary {
+  const uniqueRecords = Array.from(
+    new Map(
+      records
+        .filter((record) => record.order.isFinalized)
+        .map((record) => [record.transaction.id, record])
+    ).values()
+  );
+
+  const totals = uniqueRecords.reduce(
+    (summary, { order, transaction }) => {
+      const customerRefund = calculateCustomerRefundImpact(transaction);
+      const productCost = order.actualSupplierCost ?? getEffectiveProductCost(transaction);
+      const supplierShipping = order.supplierShipping ?? transaction.shippingPaid;
+      const supplierRefund = calculateSupplierRefundImpact(transaction);
+      const finalProfit =
+        transaction.grossRevenue -
+        customerRefund -
+        transaction.etsyFees +
+        transaction.etsyFeesRefunded -
+        transaction.etsyAds -
+        productCost -
+        supplierShipping -
+        transaction.otherFees +
+        supplierRefund;
+
+      return {
+        finalizedSalesCount: summary.finalizedSalesCount + 1,
+        fullyRefundedSalesCount:
+          summary.fullyRefundedSalesCount +
+          (customerRefund >= transaction.grossRevenue ? 1 : 0),
+        partiallyRefundedSalesCount:
+          summary.partiallyRefundedSalesCount +
+          (customerRefund > 0 && customerRefund < transaction.grossRevenue ? 1 : 0),
+        grossRevenue: summary.grossRevenue + transaction.grossRevenue,
+        customerRefunds: summary.customerRefunds + customerRefund,
+        etsyFees: summary.etsyFees + transaction.etsyFees,
+        etsyFeesRefunded: summary.etsyFeesRefunded + transaction.etsyFeesRefunded,
+        productCosts: summary.productCosts + productCost,
+        supplierShipping: summary.supplierShipping + supplierShipping,
+        offsiteAds: summary.offsiteAds + transaction.etsyAds,
+        otherFees: summary.otherFees + transaction.otherFees,
+        supplierRefunds: summary.supplierRefunds + supplierRefund,
+        finalProfit: summary.finalProfit + finalProfit
+      };
+    },
+    {
+      finalizedSalesCount: 0,
+      fullyRefundedSalesCount: 0,
+      partiallyRefundedSalesCount: 0,
+      grossRevenue: 0,
+      customerRefunds: 0,
+      etsyFees: 0,
+      etsyFeesRefunded: 0,
+      productCosts: 0,
+      supplierShipping: 0,
+      offsiteAds: 0,
+      otherFees: 0,
+      supplierRefunds: 0,
+      finalProfit: 0
+    }
+  );
+
+  const netRevenue = totals.grossRevenue - totals.customerRefunds;
+  const theoreticalPayout =
+    totals.grossRevenue -
+    totals.customerRefunds -
+    totals.etsyFees +
+    totals.etsyFeesRefunded -
+    totals.offsiteAds;
+  const theoreticalPayoutDue = Math.max(0, theoreticalPayout);
+  const payoutDifference = theoreticalPayoutDue - receivedPayouts;
+
+  return {
+    ...totals,
+    normalSalesCount:
+      totals.finalizedSalesCount -
+      totals.fullyRefundedSalesCount -
+      totals.partiallyRefundedSalesCount,
+    netRevenue,
+    averageMargin:
+      totals.grossRevenue > 0 ? (totals.finalProfit / totals.grossRevenue) * 100 : 0,
+    theoreticalPayout,
+    theoreticalPayoutDue,
+    etsyAdjustmentDebt: Math.max(0, -theoreticalPayout),
+    receivedPayouts,
+    remainingPayout: Math.max(0, payoutDifference),
+    excessReceived: Math.max(0, -payoutDifference)
+  };
 }

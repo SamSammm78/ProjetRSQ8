@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/client";
 import type {
+  EtsyPayout,
   LogisticsStatus,
   OrderAlert,
   OrderEvent,
@@ -43,6 +44,19 @@ function mapProduct(row: Record<string, unknown>): SupplierProduct {
     notes: String(row.notes ?? ""),
     isActive: Boolean(row.is_active),
     createdAt: String(row.created_at ?? "")
+  };
+}
+
+function mapPayout(row: Record<string, unknown>): EtsyPayout {
+  return {
+    id: String(row.id),
+    shopId: String(row.shop_id),
+    amount: numberValue(row.amount),
+    payoutDate: String(row.payout_date),
+    reference: String(row.reference ?? ""),
+    notes: String(row.notes ?? ""),
+    createdAt: String(row.created_at ?? ""),
+    updatedAt: String(row.updated_at ?? "")
   };
 }
 
@@ -193,6 +207,89 @@ export async function markSupplierOrderDelivered(orderId: string, deliveredAt: s
     .eq("id", orderId);
   if (error) throw error;
   await addEvent(orderId, "delivered", "Commande livree", "", "delivered");
+}
+
+export async function finalizeSupplierOrder(orderId: string) {
+  const finalizedAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("supplier_orders")
+    .update({ is_finalized: true, finalized_at: finalizedAt })
+    .eq("id", orderId)
+    .eq("is_finalized", false)
+    .not("transaction_id", "is", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return finalizedAt;
+  await addEvent(
+    orderId,
+    "order_finalized",
+    "Commande finalisee manuellement",
+    "",
+    `finalized-${finalizedAt}`
+  );
+  return finalizedAt;
+}
+
+export async function cancelSupplierOrderFinalization(orderId: string) {
+  const cancelledAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("supplier_orders")
+    .update({ is_finalized: false, finalized_at: null })
+    .eq("id", orderId)
+    .eq("is_finalized", true)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return;
+  await addEvent(
+    orderId,
+    "finalization_cancelled",
+    "Finalisation annulee",
+    "",
+    `finalization-cancelled-${cancelledAt}`
+  );
+}
+
+export async function getEtsyPayouts() {
+  const { data, error } = await supabase
+    .from("etsy_payouts")
+    .select("*")
+    .order("payout_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => mapPayout(row));
+}
+
+export async function saveEtsyPayout(input: {
+  id?: string;
+  shopId: string;
+  amount: number;
+  payoutDate: string;
+  reference: string;
+  notes: string;
+}) {
+  if (!input.shopId) throw new Error("Choisis la boutique du versement.");
+  if (input.amount <= 0) throw new Error("Le montant du versement doit etre superieur a zero.");
+  if (!input.payoutDate) throw new Error("Ajoute la date du versement.");
+
+  const payload = {
+    shop_id: input.shopId,
+    amount: input.amount,
+    payout_date: input.payoutDate,
+    reference: input.reference.trim(),
+    notes: input.notes.trim()
+  };
+  const query = input.id
+    ? supabase.from("etsy_payouts").update(payload).eq("id", input.id)
+    : supabase.from("etsy_payouts").insert(payload);
+  const { data, error } = await query.select("*").single();
+  if (error) throw error;
+  return mapPayout(data);
+}
+
+export async function deleteEtsyPayout(payoutId: string) {
+  const { error } = await supabase.from("etsy_payouts").delete().eq("id", payoutId);
+  if (error) throw error;
 }
 
 export async function reportSupplierProblem(

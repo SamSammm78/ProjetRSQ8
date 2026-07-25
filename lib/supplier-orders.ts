@@ -44,6 +44,8 @@ type SupplierOrderRow = {
   tracking_number?: string | null;
   carrier?: string | null;
   is_standalone?: boolean | null;
+  is_finalized?: boolean | null;
+  finalized_at?: string | null;
 };
 
 type SupplierOrderImageRow = {
@@ -101,7 +103,9 @@ function mapSupplierOrder(row: SupplierOrderRow, images: SupplierOrderImage[] = 
     trackingNumber: row.tracking_number ?? "",
     carrier: row.carrier ?? "",
     isStandalone: row.is_standalone ?? !row.transaction_id,
-    transaction: null
+    transaction: null,
+    isFinalized: Boolean(row.is_finalized),
+    finalizedAt: row.finalized_at ?? null
   };
 }
 

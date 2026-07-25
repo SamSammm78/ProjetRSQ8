@@ -123,6 +123,8 @@ export type SupplierOrder = {
   carrier: string;
   isStandalone: boolean;
   transaction: Transaction | null;
+  isFinalized: boolean;
+  finalizedAt: string | null;
 };
 
 export type SupplierOrderInput = {
@@ -202,4 +204,45 @@ export type OrderAlert = {
   type: "to_order" | "shipping_late" | "delivery_late" | "problem" | "reminder";
   label: string;
   tone: "warning" | "danger";
+};
+
+export type EtsyPayout = {
+  id: string;
+  shopId: string;
+  amount: number;
+  payoutDate: string;
+  reference: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FinalizedSaleRecord = {
+  order: SupplierOrder;
+  transaction: Transaction;
+};
+
+export type FinalizedSalesSummary = {
+  finalizedSalesCount: number;
+  normalSalesCount: number;
+  fullyRefundedSalesCount: number;
+  partiallyRefundedSalesCount: number;
+  grossRevenue: number;
+  customerRefunds: number;
+  netRevenue: number;
+  etsyFees: number;
+  etsyFeesRefunded: number;
+  productCosts: number;
+  supplierShipping: number;
+  offsiteAds: number;
+  otherFees: number;
+  supplierRefunds: number;
+  finalProfit: number;
+  averageMargin: number;
+  theoreticalPayout: number;
+  theoreticalPayoutDue: number;
+  etsyAdjustmentDebt: number;
+  receivedPayouts: number;
+  remainingPayout: number;
+  excessReceived: number;
 };
