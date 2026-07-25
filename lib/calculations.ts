@@ -2,6 +2,9 @@ import type {
   DailyStats,
   FinalizedSaleRecord,
   FinalizedSalesSummary,
+  PeriodOrderStatistics,
+  Shop,
+  ShopPeriodStatistics,
   Transaction,
   TransactionInput
 } from "@/lib/types";
@@ -131,6 +134,77 @@ export function aggregateDailyStats(transactions: Transaction[]): DailyStats {
     etsyAds: totals.etsyAds,
     refunds: totals.refunds
   };
+}
+
+export function calculateAverageOrderValue(grossRevenue: number, ordersCount: number) {
+  return ordersCount > 0 ? grossRevenue / ordersCount : 0;
+}
+
+export function calculateAverageProfitPerOrder(totalProfit: number, ordersCount: number) {
+  return ordersCount > 0 ? totalProfit / ordersCount : 0;
+}
+
+export function calculateRefundRate(refundedOrdersCount: number, ordersCount: number) {
+  return ordersCount > 0 ? refundedOrdersCount / ordersCount : 0;
+}
+
+export function calculatePeriodOrderStatistics(
+  transactions: Transaction[]
+): PeriodOrderStatistics {
+  const totals = aggregateDailyStats(transactions);
+  const refundTotals = transactions.reduce(
+    (result, transaction) => {
+      const refundAmount = calculateCustomerRefundImpact(transaction);
+      const isRefunded = refundAmount > 0;
+      const isFullyRefunded = isRefunded && refundAmount >= transaction.grossRevenue;
+
+      return {
+        refundedOrdersCount: result.refundedOrdersCount + (isRefunded ? 1 : 0),
+        partiallyRefundedOrdersCount:
+          result.partiallyRefundedOrdersCount + (isRefunded && !isFullyRefunded ? 1 : 0),
+        fullyRefundedOrdersCount:
+          result.fullyRefundedOrdersCount + (isFullyRefunded ? 1 : 0),
+        refundAmount: result.refundAmount + refundAmount
+      };
+    },
+    {
+      refundedOrdersCount: 0,
+      partiallyRefundedOrdersCount: 0,
+      fullyRefundedOrdersCount: 0,
+      refundAmount: 0
+    }
+  );
+
+  return {
+    ordersCount: totals.orders,
+    grossRevenue: totals.grossRevenue,
+    totalProfit: totals.netProfit,
+    averageOrderValue: calculateAverageOrderValue(totals.grossRevenue, totals.orders),
+    averageProfitPerOrder: calculateAverageProfitPerOrder(totals.netProfit, totals.orders),
+    margin: totals.grossRevenue > 0 ? totals.netProfit / totals.grossRevenue : 0,
+    ...refundTotals,
+    refundRate: calculateRefundRate(refundTotals.refundedOrdersCount, totals.orders)
+  };
+}
+
+export function calculateShopStatistics(
+  transactions: Transaction[],
+  shops: Shop[]
+): ShopPeriodStatistics[] {
+  const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]));
+  const transactionsByShop = new Map<string, Transaction[]>();
+
+  transactions.forEach((transaction) => {
+    const shopTransactions = transactionsByShop.get(transaction.shopId) ?? [];
+    shopTransactions.push(transaction);
+    transactionsByShop.set(transaction.shopId, shopTransactions);
+  });
+
+  return Array.from(transactionsByShop, ([shopId, shopTransactions]) => ({
+    shopId,
+    shopName: shopNames.get(shopId) || "Boutique supprimee",
+    ...calculatePeriodOrderStatistics(shopTransactions)
+  }));
 }
 
 export function previousIsoDay(date: string) {

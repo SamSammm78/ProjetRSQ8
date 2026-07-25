@@ -61,6 +61,25 @@ export type DailyStats = {
   refunds: number;
 };
 
+export type PeriodOrderStatistics = {
+  ordersCount: number;
+  grossRevenue: number;
+  totalProfit: number;
+  averageOrderValue: number;
+  averageProfitPerOrder: number;
+  margin: number;
+  refundedOrdersCount: number;
+  partiallyRefundedOrdersCount: number;
+  fullyRefundedOrdersCount: number;
+  refundAmount: number;
+  refundRate: number;
+};
+
+export type ShopPeriodStatistics = PeriodOrderStatistics & {
+  shopId: string;
+  shopName: string;
+};
+
 export type CsvImportRow = {
   date: string;
   orderNumber: string;

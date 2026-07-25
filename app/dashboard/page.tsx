@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeEuro,
   ChartNoAxesCombined,
   Crown,
+  HandCoins,
   Landmark,
   PackageCheck,
   Percent,
   Scale,
   Receipt,
+  ShoppingBasket,
   TrendingUp,
   X
 } from "lucide-react";
@@ -30,10 +32,22 @@ import { PageShell } from "@/components/page-shell";
 import { useClientData } from "@/components/client-data";
 import { DashboardRequiredActions } from "@/components/dashboard-required-actions";
 import { FinalizedSalesSummary } from "@/components/finalized-sales-summary";
-import { addDays, aggregateDailyStats } from "@/lib/calculations";
+import {
+  addDays,
+  aggregateDailyStats,
+  calculatePeriodOrderStatistics,
+  calculateShopStatistics
+} from "@/lib/calculations";
 import { getMonthStartIsoDate, getTodayIsoDate } from "@/lib/dates";
 import { formatCurrency, formatPercent, formatRatio } from "@/lib/format";
-import type { Shop, Transaction } from "@/lib/types";
+import type {
+  PeriodOrderStatistics,
+  Shop,
+  ShopPeriodStatistics,
+  Transaction
+} from "@/lib/types";
+
+type PeriodDetail = "average-order" | "average-profit" | "refund-rate";
 
 function isBetween(date: string, startDate: string, endDate: string) {
   return date >= startDate && date <= endDate;
@@ -58,6 +72,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState(() => getMonthStartIsoDate());
   const [endDate, setEndDate] = useState(() => getTodayIsoDate());
   const [isDailyRevenueOpen, setIsDailyRevenueOpen] = useState(false);
+  const [periodDetail, setPeriodDetail] = useState<PeriodDetail | null>(null);
   const userTransactions = transactions;
 
   const todayStats = aggregateDailyStats(
@@ -70,10 +85,22 @@ export default function DashboardPage() {
   const monthStats = aggregateDailyStats(
     userTransactions.filter((transaction) => isBetween(transaction.date, monthStart, today))
   );
-  const periodTransactions = userTransactions.filter((transaction) =>
-    isBetween(transaction.date, startDate, endDate)
+  const periodTransactions = useMemo(
+    () =>
+      userTransactions.filter((transaction) =>
+        isBetween(transaction.date, startDate, endDate)
+      ),
+    [endDate, startDate, userTransactions]
   );
   const periodStats = aggregateDailyStats(periodTransactions);
+  const periodOrderStats = useMemo(
+    () => calculatePeriodOrderStatistics(periodTransactions),
+    [periodTransactions]
+  );
+  const periodShopStats = useMemo(
+    () => calculateShopStatistics(periodTransactions, shops),
+    [periodTransactions, shops]
+  );
 
   const periodChartData = useMemo(() => {
     return getDatesBetween(startDate, endDate).map((date) => {
@@ -178,7 +205,7 @@ export default function DashboardPage() {
             />
           </label>
         </div>
-        <MetricGrid>
+        <div className="grid gap-3 sm:grid-cols-2">
           <KpiCard label="CA brut periode" value={formatCurrency(periodStats.grossRevenue)} icon={Receipt} />
           <KpiCard label="Remboursements" value={formatCurrency(periodStats.refunds)} icon={Receipt} />
           <KpiCard label="CA net periode" value={formatCurrency(periodStats.netRevenue)} icon={BadgeEuro} />
@@ -197,7 +224,29 @@ export default function DashboardPage() {
           />
           <KpiCard label="Frais Etsy" value={formatCurrency(periodStats.etsyFees)} icon={Receipt} />
           <KpiCard label="Couts produits" value={formatCurrency(periodStats.productCost)} icon={Receipt} />
-        </MetricGrid>
+          <KpiCard
+            label="Panier moyen global"
+            value={formatCurrency(periodOrderStats.averageOrderValue)}
+            icon={ShoppingBasket}
+            onClick={() => setPeriodDetail("average-order")}
+            ariaLabel="Ouvrir le detail du panier moyen par boutique"
+          />
+          <KpiCard
+            label="Taux de remboursement"
+            value={formatPercent(periodOrderStats.refundRate)}
+            icon={Percent}
+            onClick={() => setPeriodDetail("refund-rate")}
+            ariaLabel="Ouvrir le detail des remboursements"
+          />
+          <KpiCard
+            label="Benefice moyen par commande"
+            value={formatCurrency(periodOrderStats.averageProfitPerOrder)}
+            icon={HandCoins}
+            tone={periodOrderStats.averageProfitPerOrder >= 0 ? "positive" : "negative"}
+            onClick={() => setPeriodDetail("average-profit")}
+            ariaLabel="Ouvrir le detail du benefice moyen par boutique"
+          />
+        </div>
       </section>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -268,6 +317,15 @@ export default function DashboardPage() {
 
       <FinalizedSalesSummary />
 
+      {periodDetail ? (
+        <PeriodStatisticsDetail
+          detail={periodDetail}
+          globalStats={periodOrderStats}
+          shopStats={periodShopStats}
+          onClose={() => setPeriodDetail(null)}
+        />
+      ) : null}
+
       {isDailyRevenueOpen ? (
         <DailyRevenueDetail
           date={today}
@@ -278,6 +336,296 @@ export default function DashboardPage() {
         />
       ) : null}
     </PageShell>
+  );
+}
+
+function PeriodStatisticsDetail({
+  detail,
+  globalStats,
+  shopStats,
+  onClose
+}: {
+  detail: PeriodDetail;
+  globalStats: PeriodOrderStatistics;
+  shopStats: ShopPeriodStatistics[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const sortedShops = useMemo(() => {
+    const value = (shop: ShopPeriodStatistics) => {
+      if (detail === "average-order") return shop.averageOrderValue;
+      if (detail === "average-profit") return shop.averageProfitPerOrder;
+      return shop.refundRate;
+    };
+
+    return [...shopStats].sort((left, right) => value(right) - value(left));
+  }, [detail, shopStats]);
+
+  const title =
+    detail === "average-order"
+      ? "Detail du panier moyen par boutique"
+      : detail === "average-profit"
+        ? "Detail du benefice moyen par boutique"
+        : "Detail des remboursements";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-ink/55 sm:items-center sm:justify-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="period-detail-title"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-soft sm:max-w-6xl sm:rounded-lg"
+      >
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-sage bg-white p-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-normal text-ink/55">
+              Periode selectionnee
+            </p>
+            <h2 id="period-detail-title" className="text-xl font-semibold">{title}</h2>
+          </div>
+          <button
+            type="button"
+            className="focus-ring grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-sage text-ink/70"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-4">
+          {detail === "refund-rate" ? (
+            <RefundSummary stats={globalStats} />
+          ) : null}
+
+          <div className="grid gap-3 md:hidden">
+            {sortedShops.map((shop) => (
+              <ShopStatisticsCard key={shop.shopId} detail={detail} stats={shop} />
+            ))}
+            {detail !== "refund-rate" ? (
+              <ShopStatisticsCard detail={detail} stats={globalStats} isTotal />
+            ) : null}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-lg border border-sage md:block">
+            {detail === "average-order" ? (
+              <AverageOrderTable globalStats={globalStats} shopStats={sortedShops} />
+            ) : detail === "average-profit" ? (
+              <AverageProfitTable globalStats={globalStats} shopStats={sortedShops} />
+            ) : (
+              <RefundTable shopStats={sortedShops} />
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="focus-ring h-11 rounded-lg bg-moss px-4 text-sm font-semibold text-white sm:w-fit"
+            onClick={onClose}
+          >
+            Fermer
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RefundSummary({ stats }: { stats: PeriodOrderStatistics }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <SummaryValue label="Commandes totales" value={String(stats.ordersCount)} />
+      <SummaryValue
+        label="Sans remboursement"
+        value={String(stats.ordersCount - stats.refundedOrdersCount)}
+      />
+      <SummaryValue
+        label="Partiellement remboursees"
+        value={String(stats.partiallyRefundedOrdersCount)}
+      />
+      <SummaryValue
+        label="Integralement remboursees"
+        value={String(stats.fullyRefundedOrdersCount)}
+      />
+      <SummaryValue label="Taux global" value={formatPercent(stats.refundRate)} />
+      <SummaryValue label="Montant rembourse" value={formatCurrency(stats.refundAmount)} />
+    </div>
+  );
+}
+
+function SummaryValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-sage bg-mist p-3">
+      <p className="text-sm text-ink/60">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ShopStatisticsCard({
+  detail,
+  stats,
+  isTotal = false
+}: {
+  detail: PeriodDetail;
+  stats: PeriodOrderStatistics | ShopPeriodStatistics;
+  isTotal?: boolean;
+}) {
+  const name = isTotal
+    ? "Toutes les boutiques"
+    : (stats as ShopPeriodStatistics).shopName;
+
+  return (
+    <article className={`rounded-lg border border-sage p-4 ${isTotal ? "bg-mist" : "bg-white"}`}>
+      <h3 className="font-semibold">{name}</h3>
+      <div className="mt-3 grid gap-2 text-sm">
+        <DetailRow label="Commandes" value={String(stats.ordersCount)} />
+        {detail === "refund-rate" ? (
+          <>
+            <DetailRow label="Commandes remboursees" value={String(stats.refundedOrdersCount)} />
+            <DetailRow label="Taux de remboursement" value={formatPercent(stats.refundRate)} />
+            <DetailRow label="Montant rembourse" value={formatCurrency(stats.refundAmount)} />
+          </>
+        ) : (
+          <>
+            <DetailRow label="CA brut" value={formatCurrency(stats.grossRevenue)} />
+            {detail === "average-order" ? (
+              <DetailRow label="Panier moyen" value={formatCurrency(stats.averageOrderValue)} />
+            ) : (
+              <>
+                <DetailRow label="Benefice total" value={formatCurrency(stats.totalProfit)} />
+                <DetailRow
+                  label="Benefice moyen"
+                  value={formatCurrency(stats.averageProfitPerOrder)}
+                />
+                <DetailRow label="Marge" value={formatPercent(stats.margin)} />
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function AverageOrderTable({
+  globalStats,
+  shopStats
+}: {
+  globalStats: PeriodOrderStatistics;
+  shopStats: ShopPeriodStatistics[];
+}) {
+  return (
+    <table className="min-w-full text-left text-sm">
+      <thead className="bg-mist text-xs uppercase tracking-normal text-ink/55">
+        <tr>
+          <th className="px-4 py-3">Boutique</th>
+          <th className="px-4 py-3">Commandes</th>
+          <th className="px-4 py-3">CA brut</th>
+          <th className="px-4 py-3">Panier moyen</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-sage">
+        {shopStats.map((shop) => (
+          <tr key={shop.shopId}>
+            <td className="px-4 py-4 font-medium">{shop.shopName}</td>
+            <td className="px-4 py-4">{shop.ordersCount}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.grossRevenue)}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.averageOrderValue)}</td>
+          </tr>
+        ))}
+        <tr className="bg-mist font-semibold">
+          <td className="px-4 py-4">Toutes les boutiques</td>
+          <td className="px-4 py-4">{globalStats.ordersCount}</td>
+          <td className="px-4 py-4">{formatCurrency(globalStats.grossRevenue)}</td>
+          <td className="px-4 py-4">{formatCurrency(globalStats.averageOrderValue)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function AverageProfitTable({
+  globalStats,
+  shopStats
+}: {
+  globalStats: PeriodOrderStatistics;
+  shopStats: ShopPeriodStatistics[];
+}) {
+  return (
+    <table className="min-w-full text-left text-sm">
+      <thead className="bg-mist text-xs uppercase tracking-normal text-ink/55">
+        <tr>
+          <th className="px-4 py-3">Boutique</th>
+          <th className="px-4 py-3">Commandes</th>
+          <th className="px-4 py-3">CA brut</th>
+          <th className="px-4 py-3">Benefice total</th>
+          <th className="px-4 py-3">Benefice moyen</th>
+          <th className="px-4 py-3">Marge</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-sage">
+        {shopStats.map((shop) => (
+          <tr key={shop.shopId}>
+            <td className="px-4 py-4 font-medium">{shop.shopName}</td>
+            <td className="px-4 py-4">{shop.ordersCount}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.grossRevenue)}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.totalProfit)}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.averageProfitPerOrder)}</td>
+            <td className="px-4 py-4">{formatPercent(shop.margin)}</td>
+          </tr>
+        ))}
+        <tr className="bg-mist font-semibold">
+          <td className="px-4 py-4">Toutes les boutiques</td>
+          <td className="px-4 py-4">{globalStats.ordersCount}</td>
+          <td className="px-4 py-4">{formatCurrency(globalStats.grossRevenue)}</td>
+          <td className="px-4 py-4">{formatCurrency(globalStats.totalProfit)}</td>
+          <td className="px-4 py-4">{formatCurrency(globalStats.averageProfitPerOrder)}</td>
+          <td className="px-4 py-4">{formatPercent(globalStats.margin)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function RefundTable({ shopStats }: { shopStats: ShopPeriodStatistics[] }) {
+  return (
+    <table className="min-w-full text-left text-sm">
+      <thead className="bg-mist text-xs uppercase tracking-normal text-ink/55">
+        <tr>
+          <th className="px-4 py-3">Boutique</th>
+          <th className="px-4 py-3">Commandes</th>
+          <th className="px-4 py-3">Remboursees</th>
+          <th className="px-4 py-3">Taux</th>
+          <th className="px-4 py-3">Montant rembourse</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-sage">
+        {shopStats.map((shop) => (
+          <tr key={shop.shopId}>
+            <td className="px-4 py-4 font-medium">{shop.shopName}</td>
+            <td className="px-4 py-4">{shop.ordersCount}</td>
+            <td className="px-4 py-4">{shop.refundedOrdersCount}</td>
+            <td className="px-4 py-4">{formatPercent(shop.refundRate)}</td>
+            <td className="px-4 py-4">{formatCurrency(shop.refundAmount)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
