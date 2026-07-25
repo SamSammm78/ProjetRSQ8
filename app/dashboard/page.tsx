@@ -145,9 +145,8 @@ export default function DashboardPage() {
           value={formatRatio(todayStats.profitabilityRatioAverage)}
           icon={Scale}
         />
-        <KpiCard label="Remboursements jour" value={formatCurrency(todayStats.refunds)} icon={Receipt} />
-        <KpiCard label="Commandes" value={String(todayStats.orders)} icon={PackageCheck} />
         <KpiCard label="Marge" value={formatPercent(todayStats.margin)} icon={Percent} />
+        <KpiCard label="Commandes" value={String(todayStats.orders)} icon={PackageCheck} />
       </MetricGrid>
 
       <DashboardRequiredActions />
